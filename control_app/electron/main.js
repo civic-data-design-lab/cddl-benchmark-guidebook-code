@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -71,13 +72,57 @@ function runCommand(command, args, options = {}) {
 }
 
 async function checkCommand(command) {
-  const lookup = process.platform === 'win32' ? 'where' : 'which';
-  const result = await runCommand(lookup, [command]);
+  const resolved = await resolveCommand(command);
 
   return {
-    installed: result.ok,
-    path: result.stdout.split(/\r?\n/).find(Boolean) || '',
-    error: result.ok ? '' : result.stderr,
+    installed: resolved.installed,
+    path: resolved.path,
+    error: resolved.error,
+  };
+}
+
+function getWindowsCommandCandidates(command) {
+  if (command !== 'tailscale') {
+    return [];
+  }
+
+  return [
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Tailscale', 'tailscale.exe'),
+    process.env['ProgramFiles(x86)']
+      ? path.join(process.env['ProgramFiles(x86)'], 'Tailscale', 'tailscale.exe')
+      : '',
+    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Tailscale', 'tailscale.exe') : '',
+  ].filter(Boolean);
+}
+
+async function resolveCommand(command) {
+  const lookup = process.platform === 'win32' ? 'where.exe' : 'which';
+  const result = await runCommand(lookup, [command]);
+
+  if (result.ok) {
+    return {
+      installed: true,
+      path: result.stdout.split(/\r?\n/).find(Boolean) || command,
+      error: '',
+    };
+  }
+
+  if (process.platform === 'win32') {
+    const candidate = getWindowsCommandCandidates(command).find((candidatePath) => existsSync(candidatePath));
+
+    if (candidate) {
+      return {
+        installed: true,
+        path: candidate,
+        error: '',
+      };
+    }
+  }
+
+  return {
+    installed: false,
+    path: '',
+    error: result.stderr,
   };
 }
 
@@ -109,12 +154,22 @@ ipcMain.handle('plsk:check-dependencies', async () => {
 });
 
 ipcMain.handle('plsk:tailscale-status', async () => {
-  const result = await runCommand('tailscale', ['status']);
+  const command = await resolveCommand('tailscale');
+
+  if (!command.installed) {
+    return {
+      ok: false,
+      message: 'Could not find Tailscale on this laptop.',
+      detail: 'Install Tailscale, or add tailscale.exe to PATH, then run the setup check again.',
+    };
+  }
+
+  const result = await runCommand(command.path, ['status']);
 
   if (!result.ok) {
     return {
       ok: false,
-      message: 'Could not read Tailscale status. Make sure Tailscale is installed and running.',
+      message: 'Could not read Tailscale status. Make sure Tailscale is running on this laptop.',
       detail: result.stderr || result.stdout,
     };
   }

@@ -52,8 +52,8 @@ export default function SetupChecklist({
 
       {hasDependencies && !dependencies.tailscale.installed ? (
         <div className="note warning">
-          <strong>Tailscale is missing.</strong>
-          <p>Install Tailscale on this laptop, log in, and then run the setup check again.</p>
+          <strong>Tailscale is missing on this laptop.</strong>
+          <p>Install Tailscale here too, log in with the same Tailscale account as the Jetson, and run the setup check again.</p>
         </div>
       ) : null}
 
