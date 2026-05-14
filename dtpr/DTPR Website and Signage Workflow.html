@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DTPR website & signage — user workflow</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          Arial,
+          sans-serif;
+        background: #f0f4f8;
+        padding: 24px;
+      }
+      .fig-wrap {
+        max-width: 1000px;
+        margin: 0 auto;
+        background: #fff;
+        border: 1.5px solid #b8cfe8;
+        border-radius: 14px;
+        padding: 20px 20px 16px;
+      }
+      .fig-title {
+        text-align: center;
+        font-size: 17px;
+        font-weight: 700;
+        color: #0d3b6e;
+        margin-bottom: 6px;
+      }
+      .fig-sub {
+        text-align: center;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #35557e;
+        margin-bottom: 14px;
+        padding-bottom: 10px;
+        border-bottom: 1.5px solid #b8cfe8;
+        line-height: 1.45;
+      }
+
+      .section {
+        border: 1.5px solid #b8cfe8;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 12px;
+      }
+      .sec-head {
+        padding: 8px 14px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 700;
+        background: #1a3f72;
+        color: #fff;
+      }
+      .sec-body {
+        padding: 14px 12px;
+        background: #fff;
+      }
+
+      svg {
+        display: block;
+      }
+
+      .journey-row {
+        display: flex;
+        align-items: stretch;
+        flex-wrap: wrap;
+        gap: 0;
+        justify-content: center;
+      }
+      .journey-sep {
+        width: 12px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #4a78b0;
+        font-size: 15px;
+        font-weight: 800;
+      }
+      .step-card {
+        flex: 1 1 120px;
+        min-width: 100px;
+        max-width: 180px;
+        border-radius: 8px;
+        border: 1.5px solid #b8cfe8;
+        background: #f7fafd;
+        padding: 8px 6px 9px;
+        position: relative;
+      }
+      .step-num {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        width: 19px;
+        height: 19px;
+        border-radius: 50%;
+        font-size: 9px;
+        font-weight: 800;
+        color: #fff;
+        background: #1a3f72;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .step-icon {
+        width: 30px;
+        height: 30px;
+        margin: 18px auto 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .step-icon svg {
+        width: 26px;
+        height: 26px;
+        fill: none;
+        stroke: #1a3f72;
+        stroke-width: 1.65;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .step-title {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #1a2540;
+        text-align: center;
+        line-height: 1.25;
+        margin-bottom: 6px;
+      }
+      .step-list {
+        list-style: none;
+      }
+      .step-list li {
+        font-size: 9px;
+        color: #1a2540;
+        line-height: 1.45;
+        padding-left: 9px;
+        position: relative;
+      }
+      .step-list li::before {
+        content: "•";
+        position: absolute;
+        left: 0;
+        color: #1a3f72;
+      }
+      .step-list code {
+        font-size: 8px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        background: #e8eef6;
+        padding: 0 2px;
+        border-radius: 2px;
+      }
+
+      .flow-strip {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 8px;
+        background: #e9eff7;
+        border-radius: 8px;
+        border: 1px solid #b8cfe8;
+        margin-bottom: 12px;
+      }
+      .flow-item {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #1a3f72;
+        padding: 6px 12px;
+        background: #fff;
+        border: 1px solid #b8cfe8;
+        border-radius: 6px;
+      }
+      .flow-arrow {
+        color: #4a78b0;
+        font-weight: 800;
+        font-size: 14px;
+      }
+
+      .note {
+        margin-top: 12px;
+        font-size: 11px;
+        color: #35557e;
+        text-align: center;
+        line-height: 1.45;
+        border-top: 1px dashed #b8cfe8;
+        padding-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="fig-wrap">
+      <div class="fig-title">
+        DTPR transparency website &amp; signage — user workflow
+      </div>
+      <div class="fig-sub">
+        Static template: edit configuration, preview locally, publish online, then
+        produce and place physical signage linked to the live site.
+      </div>
+
+      <div class="flow-strip" aria-hidden="true">
+        <span class="flow-item">Static site files</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-item">Public HTTPS URL</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-item">On-site signage &amp; QR</span>
+      </div>
+
+      <div class="section">
+        <div class="sec-head">Steps from setup to deployment</div>
+        <div class="sec-body">
+          <div class="journey-row">
+            <div class="step-card">
+              <div class="step-num">1</div>
+              <div class="step-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2-3h6l2 3h5a2 2 0 012 2z" />
+                  <circle cx="12" cy="13" r="3" />
+                </svg>
+              </div>
+              <div class="step-title">Copy the template</div>
+              <ul class="step-list">
+                <li>Keep full folder: HTML pages, <code>css/</code>, <code>js/</code>, <code>assets/</code></li>
+                <li>No build tools required</li>
+              </ul>
+            </div>
+            <div class="journey-sep">›</div>
+            <div class="step-card">
+              <div class="step-num">2</div>
+              <div class="step-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+              </div>
+              <div class="step-title">Customize content</div>
+              <ul class="step-list">
+                <li>Edit <code>js/config.js</code> (project text, DTPR cards, survey, links, visuals)</li>
+                <li>Or use <code>settings.html</code> in the browser for the same fields</li>
+              </ul>
+            </div>
+            <div class="journey-sep">›</div>
+            <div class="step-card">
+              <div class="step-num">3</div>
+              <div class="step-icon">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                </svg>
+              </div>
+              <div class="step-title">Preview locally</div>
+              <ul class="step-list">
+                <li>Run a static server (e.g. <code>py -m http.server 8000</code>)</li>
+                <li>Check <code>home.html</code>, <code>index.html</code>, <code>signage.html</code></li>
+              </ul>
+            </div>
+            <div class="journey-sep">›</div>
+            <div class="step-card">
+              <div class="step-num">4</div>
+              <div class="step-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" />
+                  <polyline points="16 14 12 10 8 14" />
+                </svg>
+              </div>
+              <div class="step-title">Deploy the website</div>
+              <ul class="step-list">
+                <li>Upload the whole site to a static host (GitHub Pages, Netlify, or web root)</li>
+                <li>Confirm HTTPS and bookmark the public URL (often <code>…/home.html</code>)</li>
+              </ul>
+            </div>
+            <div class="journey-sep">›</div>
+            <div class="step-card">
+              <div class="step-num">5</div>
+              <div class="step-icon">
+                <svg viewBox="0 0 24 24">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <rect x="7" y="7" width="10" height="10" rx="1" stroke-dasharray="2 2" />
+                  <path d="M9 9h6M9 12h6M9 15h4" />
+                </svg>
+              </div>
+              <div class="step-title">Prepare signage</div>
+              <ul class="step-list">
+                <li>Use <code>signage.html</code> for printable / sticker assets</li>
+                <li>Point QR codes to your live transparency URL</li>
+              </ul>
+            </div>
+            <div class="journey-sep">›</div>
+            <div class="step-card">
+              <div class="step-num">6</div>
+              <div class="step-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                  <circle cx="12" cy="10" r="2.5" />
+                </svg>
+              </div>
+              <div class="step-title">Install at the place</div>
+              <ul class="step-list">
+                <li>Mount signage where people naturally see it</li>
+                <li>Test QR and links on a phone</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="note">
+        This workflow matches the bundled template: static disclosure pages, one
+        configuration file for copy and DTPR-style cards, then hosting plus
+        field signage so visitors can open the same information online.
+        See <code>README.md</code> and <code>deploy.html</code> in this folder for
+        detailed hosting options.
+      </p>
+    </div>
+  </body>
+</html>

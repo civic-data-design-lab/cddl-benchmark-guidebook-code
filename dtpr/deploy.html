@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
+  <title>Deployment Guide</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous"/>
+  <link href="css/template.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+  <script src="js/config.js"></script>
+</head>
+<body class="deploy-page">
+
+<!-- ── Navbar ───────────────────────────────────────────── -->
+<nav class="navbar navbar-expand-lg navbar-light bg-white dtpr-navbar sticky-top" id="dtpr-navbar"></nav>
+
+<!-- ── Hero ─────────────────────────────────────────────── -->
+<div class="settings-hero">
+  <div class="container">
+    <div class="settings-hero-inner">
+      <div class="settings-hero-icon"><i class="bi bi-cloud-upload-fill"></i></div>
+      <div>
+        <h1 class="settings-hero-title">Deployment Guide</h1>
+        <p class="settings-hero-sub">Step-by-step instructions to host this DTPR platform online — for free, in under 10 minutes.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Content ───────────────────────────────────────────── -->
+<div class="container deploy-container">
+
+  <!-- Overview -->
+  <div class="deploy-intro">
+    <p>This is a <strong>static website</strong> — it runs entirely in the browser with no server or database required. You only need to upload the files to a web host. Below are three recommended options, ordered by simplicity.</p>
+  </div>
+
+  <!-- Option tabs -->
+  <ul class="deploy-tabs" id="deployTabs" role="tablist">
+    <li role="presentation">
+      <button class="deploy-tab active" id="tab-pages" data-tab="pages" role="tab">
+        <i class="bi bi-github me-2"></i>GitHub Pages <span class="tab-badge free">Free</span>
+      </button>
+    </li>
+    <li role="presentation">
+      <button class="deploy-tab" id="tab-netlify" data-tab="netlify" role="tab">
+        <i class="bi bi-lightning-fill me-2"></i>Netlify <span class="tab-badge free">Free</span>
+      </button>
+    </li>
+    <li role="presentation">
+      <button class="deploy-tab" id="tab-manual" data-tab="manual" role="tab">
+        <i class="bi bi-server me-2"></i>Any Web Server
+      </button>
+    </li>
+  </ul>
+
+  <!-- GitHub Pages -->
+  <div id="panel-pages" class="deploy-panel active">
+    <div class="deploy-steps">
+
+      <div class="deploy-step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3 class="step-title">Create a free GitHub account</h3>
+          <p>Go to <a href="https://github.com" target="_blank">github.com</a> and sign up if you don't already have an account.</p>
+        </div>
+      </div>
+
+      <div class="deploy-step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3 class="step-title">Create a new repository</h3>
+          <p>Click <strong>New</strong> → name it anything (e.g. <code>my-dtpr-site</code>) → set it to <strong>Public</strong> → click <strong>Create repository</strong>.</p>
+        </div>
+      </div>
+
+      <div class="deploy-step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3 class="step-title">Upload your files</h3>
+          <p>Inside the repository, click <strong>Add file → Upload files</strong>. Drag and drop <em>all</em> files and folders from your project directory (the folder containing <code>home.html</code>, <code>index.html</code>, <code>css/</code>, <code>js/</code>, <code>assets/</code>). Click <strong>Commit changes</strong>.</p>
+          <div class="code-block">
+            <span class="code-comment"># Folder structure to upload:</span>
+            ├── home.html
+            ├── index.html
+            ├── settings.html
+            ├── signage.html
+            ├── deploy.html
+            ├── css/
+            ├── js/
+            │   ├── config.js    ← edit this to customise
+            │   ├── app.js
+            │   └── scripts.js
+            └── assets/
+          </div>
+        </div>
+      </div>
+
+      <div class="deploy-step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3 class="step-title">Enable GitHub Pages</h3>
+          <p>In your repository go to <strong>Settings → Pages</strong>. Under <em>Source</em>, select <strong>Deploy from a branch</strong>, choose <strong>main</strong> branch and <strong>/ (root)</strong> folder. Click <strong>Save</strong>.</p>
+        </div>
+      </div>
+
+      <div class="deploy-step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3 class="step-title">Access your live site</h3>
+          <p>After ~60 seconds your site will be live at:<br>
+          <code>https://&lt;your-username&gt;.github.io/&lt;repository-name&gt;/home.html</code></p>
+          <div class="step-tip"><i class="bi bi-lightbulb me-1"></i>Bookmark this URL and share it with the public.</div>
+        </div>
+      </div>
+
+      <div class="deploy-step">
+        <div class="step-num">6</div>
+        <div class="step-body">
+          <h3 class="step-title">Customise your content</h3>
+          <p>Open <code>js/config.js</code> in any text editor. Change the project name, description, survey URL, etc. Upload the modified file back to GitHub (same upload flow). Changes go live in ~30 seconds.</p>
+          <div class="step-tip"><i class="bi bi-lightbulb me-1"></i>Alternatively, use the <a href="settings.html">Settings panel</a> on the live site — changes persist in that browser via localStorage.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Netlify -->
+  <div id="panel-netlify" class="deploy-panel">
+    <div class="deploy-steps">
+
+      <div class="deploy-step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3 class="step-title">Create a Netlify account</h3>
+          <p>Go to <a href="https://netlify.com" target="_blank">netlify.com</a> → Sign up for free (you can use your GitHub account).</p>
+        </div>
+      </div>
+
+      <div class="deploy-step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3 class="step-title">Drag-and-drop deploy</h3>
+          <p>On your Netlify dashboard, scroll to the bottom — you'll see a <strong>deploy drop zone</strong>. Open your project folder in your file browser, select all files and folders, and drag them into the drop zone.</p>
+          <div class="step-tip"><i class="bi bi-lightning me-1"></i>Netlify deploys instantly — your site is live in seconds with a URL like <code>https://amazing-name-123.netlify.app</code>.</div>
+        </div>
+      </div>
+
+      <div class="deploy-step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3 class="step-title">Set the publish directory</h3>
+          <p>Netlify may ask for a publish directory. Leave it as <strong>/</strong> (the root).</p>
+        </div>
+      </div>
+
+      <div class="deploy-step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3 class="step-title">Custom domain (optional)</h3>
+          <p>In Netlify → <strong>Domain settings</strong>, you can add a custom domain (e.g. <code>dtpr.yourproject.org</code>). Netlify also provides free HTTPS automatically.</p>
+        </div>
+      </div>
+
+      <div class="deploy-step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3 class="step-title">Update content</h3>
+          <p>To update, edit <code>js/config.js</code> then drag-and-drop the updated folder again, or connect a GitHub repo for automatic deploys on every commit.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Any Web Server -->
+  <div id="panel-manual" class="deploy-panel">
+    <div class="deploy-steps">
+
+      <div class="deploy-step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3 class="step-title">Obtain web hosting</h3>
+          <p>You need a host that serves static files over HTTP/HTTPS. Options include: Amazon S3 + CloudFront, Google Cloud Storage, Azure Static Web Apps, university IT hosting, or any shared hosting (cPanel). No PHP or Node.js required.</p>
+        </div>
+      </div>
+
+      <div class="deploy-step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3 class="step-title">Upload files via FTP / SFTP</h3>
+          <p>Use a client like <a href="https://filezilla-project.org/" target="_blank">FileZilla</a> (free) to upload all project files to your <code>public_html</code> or equivalent web root directory.</p>
+          <div class="code-block">
+Host:     your-university.edu or hosting provider
+Username: your FTP username
+Password: your FTP password
+Port:     21 (FTP) or 22 (SFTP)
+          </div>
+        </div>
+      </div>
+
+      <div class="deploy-step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3 class="step-title">Set home.html as the index</h3>
+          <p>If your host doesn't automatically serve <code>home.html</code>, create an <code>index.html</code> redirect file in the root:</p>
+          <div class="code-block">&lt;meta http-equiv="refresh" content="0; url=home.html"&gt;</div>
+        </div>
+      </div>
+
+      <div class="deploy-step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3 class="step-title">Test your deployment</h3>
+          <p>Visit your URL and check all pages. Open the browser console (F12) and look for any 404 errors (missing files). The most common issue is incorrect asset paths — make sure the <code>assets/</code> folder was uploaded correctly.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Customisation Reference -->
+  <div class="settings-card mt-4">
+    <div class="settings-card-header">
+      <i class="bi bi-pencil-square"></i><span>Quick Customisation Reference</span>
+    </div>
+    <div class="settings-card-body">
+      <table class="deploy-table">
+        <thead>
+          <tr><th>What to change</th><th>Where</th><th>How</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Project name, description, funding</td>
+            <td><code>js/config.js</code></td>
+            <td>Edit <code>projectName</code>, <code>projectDescription</code>, <code>projectFunding</code></td>
+          </tr>
+          <tr>
+            <td>Survey URL</td>
+            <td><code>js/config.js</code> or Settings page</td>
+            <td>Edit <code>surveyUrl</code></td>
+          </tr>
+          <tr>
+            <td>Background image</td>
+            <td><code>assets/</code> + <code>js/config.js</code></td>
+            <td>Drop new image, update <code>heroBackground</code></td>
+          </tr>
+          <tr>
+            <td>Accent colour</td>
+            <td><code>js/config.js</code> or Settings page</td>
+            <td>Edit <code>accentColor</code> (any CSS colour)</td>
+          </tr>
+          <tr>
+            <td>DTPR cards</td>
+            <td><code>js/config.js</code></td>
+            <td>Edit <code>dtprSections</code> array</td>
+          </tr>
+          <tr>
+            <td>Footer links</td>
+            <td><code>js/config.js</code> or Settings page</td>
+            <td>Edit <code>footerLinks</code></td>
+          </tr>
+          <tr>
+            <td>Signage PDF</td>
+            <td><code>signage.html</code></td>
+            <td>Edit live in browser → Print / Save as PDF</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ── Footer ───────────────────────────────────────────── -->
+<footer class="site-footer py-4 footer-txt" id="dtpr-footer"></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/scripts.js"></script>
+<script src="js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  setPageTitle('Deployment Guide');
+
+  // Tab switching
+  document.querySelectorAll('.deploy-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.deploy-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.deploy-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+});
+</script>
+</body>
+</html>

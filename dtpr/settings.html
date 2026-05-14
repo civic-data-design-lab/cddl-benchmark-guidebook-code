@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <title>Settings</title>
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65"
+      crossorigin="anonymous"
+    />
+    <link href="css/template.css" rel="stylesheet" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+    />
+    <script src="js/config.js"></script>
+  </head>
+  <body class="settings-page">
+    <!-- ── Navbar ───────────────────────────────────────────── -->
+    <nav
+      class="navbar navbar-expand-lg navbar-light bg-white dtpr-navbar sticky-top"
+      id="dtpr-navbar"
+    ></nav>
+
+    <!-- ── Page Header ──────────────────────────────────────── -->
+    <div class="settings-hero">
+      <div class="container">
+        <div class="settings-hero-inner">
+          <div class="settings-hero-icon"><i class="bi bi-gear-fill"></i></div>
+          <div>
+            <h1 class="settings-hero-title">Project Settings</h1>
+            <p class="settings-hero-sub">
+              Customize every aspect of your DTPR platform. Changes are saved to
+              this browser and applied across all pages instantly.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Settings Form ────────────────────────────────────── -->
+    <div class="container settings-container">
+      <!-- Save Banner -->
+      <div id="save-banner" class="save-banner d-none">
+        <i class="bi bi-check-circle-fill me-2"></i>Settings saved! Reload any
+        page to see changes.
+      </div>
+
+      <!-- ── Section: Project Identity ────────────────────── -->
+      <div class="settings-card">
+        <div class="settings-card-header">
+          <i class="bi bi-file-earmark-text"></i>
+          <span>Project Identity</span>
+        </div>
+        <div class="settings-card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label settings-label" for="s-projectName"
+                >Project Name</label
+              >
+              <input
+                type="text"
+                class="form-control settings-input"
+                id="s-projectName"
+                placeholder="e.g. Bench Mark"
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label settings-label" for="s-projectTagline"
+                >Tagline</label
+              >
+              <input
+                type="text"
+                class="form-control settings-input"
+                id="s-projectTagline"
+                placeholder="Short tagline"
+              />
+            </div>
+            <div class="col-12">
+              <label
+                class="form-label settings-label"
+                for="s-projectDescription"
+                >Project Description</label
+              >
+              <textarea
+                class="form-control settings-input"
+                id="s-projectDescription"
+                rows="5"
+                placeholder="Full project description for the hero section..."
+              ></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label settings-label" for="s-projectFunding"
+                >Funding Statement</label
+              >
+              <input
+                type="text"
+                class="form-control settings-input"
+                id="s-projectFunding"
+                placeholder="e.g. Funded by Transport for NSW..."
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Section: Branding ─────────────────────────────── -->
+      <div class="settings-card">
+        <div class="settings-card-header">
+          <i class="bi bi-palette"></i>
+          <span>Branding</span>
+        </div>
+        <div class="settings-card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+              <label class="form-label settings-label" for="s-heroBackground"
+                >Hero Background Image URL</label
+              >
+              <input
+                type="text"
+                class="form-control settings-input"
+                id="s-heroBackground"
+                placeholder="assets/background_image_sample.png"
+              />
+            </div>
+            <div class="col-md-2 text-center">
+              <label class="form-label settings-label d-block">Upload BG</label>
+              <label for="s-bgUpload" class="upload-btn">
+                <i class="bi bi-upload"></i> Browse
+              </label>
+              <input
+                type="file"
+                id="s-bgUpload"
+                accept="image/*"
+                class="d-none"
+              />
+            </div>
+            <div class="col-md-5">
+              <div class="bg-preview-box" id="bg-preview"></div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label settings-label" for="s-accentColor"
+                >Accent Colour</label
+              >
+              <div class="d-flex gap-2 align-items-center">
+                <input
+                  type="color"
+                  class="form-control form-control-color"
+                  id="s-accentColor"
+                  value="#1a73e8"
+                  title="Choose accent colour"
+                />
+                <span id="accent-hex" class="settings-hint">#1a73e8</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Section: Survey Tool ──────────────────────────── -->
+      <div class="settings-card">
+        <div class="settings-card-header">
+          <i class="bi bi-link-45deg"></i>
+          <span>Qualitative Survey Tool</span>
+        </div>
+        <div class="settings-card-body">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label settings-label" for="s-surveyUrl"
+                >Survey URL</label
+              >
+              <input
+                type="url"
+                class="form-control settings-input"
+                id="s-surveyUrl"
+                placeholder="https://your-survey-tool.com/your-form"
+              />
+              <div class="form-text settings-hint">
+                Qualtrics, Google Forms, SurveyMonkey — any URL works.
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label settings-label" for="s-surveyLabel"
+                >Button Label</label
+              >
+              <input
+                type="text"
+                class="form-control settings-input"
+                id="s-surveyLabel"
+                placeholder="Survey"
+              />
+            </div>
+            <div class="col-12">
+              <label class="form-label settings-label">Preview</label>
+              <a
+                id="survey-preview-link"
+                href="#"
+                target="_blank"
+                class="hero-btn hero-btn--primary d-inline-flex align-items-center gap-2"
+                style="text-decoration: none"
+              >
+                <i class="bi bi-clipboard-check"></i>
+                <span id="survey-preview-label">Survey</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Section: Footer Partners ──────────────────────── -->
+      <!-- ── Section: Footer Links ─────────────────────────── -->
+      <div class="settings-card">
+        <div class="settings-card-header">
+          <i class="bi bi-list-ul"></i>
+          <span>Footer Text Links</span>
+        </div>
+        <div class="settings-card-body">
+          <div id="footer-links-editor" class="partner-list"></div>
+          <button type="button" class="add-row-btn mt-3" id="add-footer-link">
+            <i class="bi bi-plus-circle me-1"></i> Add Link
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Save & Reset ───────────────────────────────────── -->
+      <div class="settings-actions">
+        <button type="button" id="btn-save" class="action-btn action-btn--save">
+          <i class="bi bi-floppy me-2"></i>Save Settings
+        </button>
+        <button
+          type="button"
+          id="btn-reset"
+          class="action-btn action-btn--reset"
+        >
+          <i class="bi bi-arrow-counterclockwise me-2"></i>Reset to Defaults
+        </button>
+      </div>
+    </div>
+    <!-- /container -->
+
+    <!-- ── Footer ───────────────────────────────────────────── -->
+    <footer class="site-footer py-4 footer-txt" id="dtpr-footer"></footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/scripts.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        setPageTitle("Settings");
+
+        /* ── Populate fields from DTPR_CONFIG ─── */
+        function populate() {
+          document.getElementById("s-projectName").value =
+            DTPR_CONFIG.projectName || "";
+          document.getElementById("s-projectTagline").value =
+            DTPR_CONFIG.projectTagline || "";
+          document.getElementById("s-projectDescription").value =
+            DTPR_CONFIG.projectDescription || "";
+          document.getElementById("s-projectFunding").value =
+            DTPR_CONFIG.projectFunding || "";
+          document.getElementById("s-heroBackground").value =
+            DTPR_CONFIG.heroBackground || "";
+          document.getElementById("s-accentColor").value =
+            DTPR_CONFIG.accentColor || "#1a73e8";
+          document.getElementById("accent-hex").textContent =
+            DTPR_CONFIG.accentColor || "#1a73e8";
+          document.getElementById("s-surveyUrl").value =
+            DTPR_CONFIG.surveyUrl || "";
+          document.getElementById("s-surveyLabel").value =
+            DTPR_CONFIG.surveyLabel || "Survey";
+          document.getElementById("bg-preview").style.backgroundImage =
+            `url('${DTPR_CONFIG.heroBackground}')`;
+          document.getElementById("survey-preview-link").href =
+            DTPR_CONFIG.surveyUrl || "#";
+          document.getElementById("survey-preview-label").textContent =
+            DTPR_CONFIG.surveyLabel || "Survey";
+
+          renderPartnerEditor(
+            "footer-links-editor",
+            DTPR_CONFIG.footerLinks,
+            "link",
+          );
+        }
+
+        /* ── Live previews ──────────────────── */
+        document
+          .getElementById("s-accentColor")
+          .addEventListener("input", (e) => {
+            document.getElementById("accent-hex").textContent = e.target.value;
+            document.documentElement.style.setProperty(
+              "--accent",
+              e.target.value,
+            );
+          });
+        document
+          .getElementById("s-heroBackground")
+          .addEventListener("input", (e) => {
+            document.getElementById("bg-preview").style.backgroundImage =
+              `url('${e.target.value}')`;
+          });
+        document
+          .getElementById("s-surveyUrl")
+          .addEventListener("input", (e) => {
+            document.getElementById("survey-preview-link").href =
+              e.target.value;
+          });
+        document
+          .getElementById("s-surveyLabel")
+          .addEventListener("input", (e) => {
+            document.getElementById("survey-preview-label").textContent =
+              e.target.value;
+          });
+
+        /* BG upload */
+        document
+          .getElementById("s-bgUpload")
+          .addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            document.getElementById("s-heroBackground").value = file.name;
+            document.getElementById("bg-preview").style.backgroundImage =
+              `url('${url}')`;
+          });
+
+        /* ── Partner / link editor ───────────── */
+        function renderPartnerEditor(containerId, items, type) {
+          const c = document.getElementById(containerId);
+          c.innerHTML = "";
+          (items || []).forEach((item, i) => {
+            const row = document.createElement("div");
+            row.className = "partner-row";
+            row.innerHTML = `
+          <div class="partner-fields">
+            <input class="form-control settings-input partner-label" placeholder="Label" value="${item.label || ""}">
+            <input class="form-control settings-input partner-href" placeholder="Link URL" value="${item.href || ""}">
+          </div>
+          <button class="remove-row-btn" title="Remove"><i class="bi bi-x-lg"></i></button>`;
+            row
+              .querySelector(".remove-row-btn")
+              .addEventListener("click", () => row.remove());
+            c.appendChild(row);
+          });
+        }
+
+        function collectPartners(containerId, type) {
+          const rows = document.querySelectorAll(
+            `#${containerId} .partner-row`,
+          );
+          return Array.from(rows).map((row) => {
+            return {
+              label: row.querySelector(".partner-label").value,
+              href: row.querySelector(".partner-href").value,
+            };
+          });
+        }
+
+        document
+          .getElementById("add-footer-link")
+          .addEventListener("click", () => {
+            renderPartnerEditor(
+              "footer-links-editor",
+              [
+                ...collectPartners("footer-links-editor", "link"),
+                { label: "", href: "" },
+              ],
+              "link",
+            );
+          });
+
+        /* ── Save ────────────────────────────── */
+        document.getElementById("btn-save").addEventListener("click", () => {
+          const overrides = {
+            projectName: document.getElementById("s-projectName").value,
+            projectTagline: document.getElementById("s-projectTagline").value,
+            projectDescription: document.getElementById("s-projectDescription")
+              .value,
+            projectFunding: document.getElementById("s-projectFunding").value,
+            heroBackground: document.getElementById("s-heroBackground").value,
+            accentColor: document.getElementById("s-accentColor").value,
+            surveyUrl: document.getElementById("s-surveyUrl").value,
+            surveyLabel: document.getElementById("s-surveyLabel").value,
+            footerLinks: collectPartners("footer-links-editor", "link"),
+          };
+          localStorage.setItem("dtpr_settings", JSON.stringify(overrides));
+          Object.assign(DTPR_CONFIG, overrides);
+          const banner = document.getElementById("save-banner");
+          banner.classList.remove("d-none");
+          setTimeout(() => banner.classList.add("d-none"), 4000);
+        });
+
+        /* ── Reset ───────────────────────────── */
+        document.getElementById("btn-reset").addEventListener("click", () => {
+          if (
+            confirm(
+              "Reset all settings to defaults? This will clear your saved settings.",
+            )
+          ) {
+            localStorage.removeItem("dtpr_settings");
+            location.reload();
+          }
+        });
+
+        populate();
+      });
+    </script>
+  </body>
+</html>
