@@ -3,7 +3,6 @@ export default function DeviceForm({ device, saving, onChange, onSave }) {
     <section className="panel">
       <div className="section-heading">
         <div>
-          <span className="section-number">2</span>
           <h2>Jetson Device</h2>
         </div>
       </div>
@@ -13,7 +12,9 @@ export default function DeviceForm({ device, saving, onChange, onSave }) {
           <span>SSH Address</span>
           <input
             value={device.sshAddress}
-            onChange={(event) => onChange({ ...device, sshAddress: event.target.value })}
+            onChange={(event) =>
+              onChange({ ...device, sshAddress: event.target.value })
+            }
             placeholder="min@plsk-jetson-001"
             autoComplete="off"
           />
@@ -23,14 +24,16 @@ export default function DeviceForm({ device, saving, onChange, onSave }) {
           <span>Remote Folder</span>
           <input
             value={device.remotePath}
-            onChange={(event) => onChange({ ...device, remotePath: event.target.value })}
+            onChange={(event) =>
+              onChange({ ...device, remotePath: event.target.value })
+            }
             placeholder="/home/min"
             autoComplete="off"
           />
         </label>
 
         <button type="submit" disabled={saving}>
-          {saving ? 'Saving...' : 'Save Device'}
+          {saving ? "Saving..." : "Save Device"}
         </button>
       </form>
     </section>

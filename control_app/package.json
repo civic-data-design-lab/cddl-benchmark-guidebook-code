@@ -1,13 +1,13 @@
 {
-  "name": "plsk-remote-ssh-manager",
+  "name": "public-life-sensor-kit-manager",
   "version": "0.1.0",
-  "description": "A simple Electron app for connecting to a Jetson through Tailscale and SSH.",
+  "description": "A simple Electron app for managing a Public Life Sensor Kit Jetson through Tailscale and SSH.",
   "main": "electron/main.js",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "electron": "electron .",
+    "electron": "node scripts/launch-electron.js",
     "start": "concurrently \"npm run dev\" \"npm run electron\"",
     "build": "vite build"
   },

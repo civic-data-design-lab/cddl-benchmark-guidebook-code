@@ -19,7 +19,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -50,6 +51,14 @@ button.secondary {
 
 button.secondary:hover:not(:disabled) {
   background: #c5d2df;
+}
+
+button.danger {
+  background: #b42318;
+}
+
+button.danger:hover:not(:disabled) {
+  background: #8f1c13;
 }
 
 .app-shell {
@@ -95,6 +104,26 @@ h1 {
   margin-bottom: 0;
 }
 
+.page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.page-nav button {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #eaf4ff;
+  min-height: 38px;
+}
+
+.page-nav button:hover:not(:disabled),
+.page-nav button.active {
+  background: #ffffff;
+  color: #14202b;
+}
+
 .content {
   display: grid;
   gap: 18px;
@@ -127,18 +156,6 @@ h1 {
 .section-heading h2 {
   font-size: 1.12rem;
   margin: 0;
-}
-
-.section-number {
-  align-items: center;
-  background: #e8f2ff;
-  border-radius: 999px;
-  color: #1659b7;
-  display: inline-flex;
-  font-weight: 800;
-  height: 30px;
-  justify-content: center;
-  width: 30px;
 }
 
 .checklist {
@@ -225,7 +242,8 @@ label span {
   font-weight: 750;
 }
 
-input {
+input,
+select {
   border: 1px solid #bfccd8;
   border-radius: 6px;
   color: #17212b;
@@ -234,7 +252,8 @@ input {
   width: 100%;
 }
 
-input:focus {
+input:focus,
+select:focus {
   border-color: #1f6feb;
   box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.16);
   outline: none;
@@ -246,6 +265,365 @@ input:focus {
   border-radius: 8px;
   margin-bottom: 16px;
   padding: 14px 16px;
+}
+
+.status-table {
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.status-row {
+  align-items: center;
+  border-bottom: 1px solid #e3e9ef;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 12px 16px;
+}
+
+.status-row:last-child {
+  border-bottom: 0;
+}
+
+.status-row span,
+.power-actions p {
+  color: #415466;
+}
+
+.status-value {
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.status-value-list {
+  display: grid;
+  gap: 4px;
+}
+
+.status-value-list strong {
+  display: block;
+}
+
+.accordion-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.accordion-section {
+  border: 1px solid #d9e1e8;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.accordion-trigger {
+  align-items: center;
+  background: #f6f8fa;
+  color: #17212b;
+  display: flex;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 10px 14px;
+  text-align: left;
+  width: 100%;
+}
+
+.accordion-trigger:hover:not(:disabled) {
+  background: #eef3f7;
+}
+
+.accordion-trigger > span:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.accordion-trigger small {
+  color: #5b7083;
+  font-weight: 600;
+}
+
+.accordion-trigger > span:last-child {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d9e1e8;
+  border-radius: 999px;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.accordion-content {
+  padding: 14px;
+}
+
+.manager-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.manager-section {
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.manager-section-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.manager-section h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.manager-section-header p {
+  color: #415466;
+  margin: 4px 0 0;
+}
+
+.compact-actions,
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.compact-actions button {
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.manager-form {
+  display: grid;
+  gap: 12px;
+}
+
+.monitor-section {
+  margin-top: 16px;
+}
+
+.monitor-form {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 2fr) minmax(130px, 0.5fr) minmax(180px, 0.8fr);
+}
+
+.camera-manager {
+  display: grid;
+  gap: 16px;
+}
+
+.camera-config-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.camera-config-grid label:first-child,
+.camera-config-grid label:last-child {
+  grid-column: 1 / -1;
+}
+
+.camera-number-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.camera-log {
+  background: #111827;
+  border-radius: 8px;
+  color: #e5edf5;
+  margin-top: 12px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 14px;
+}
+
+.file-browser {
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.file-browser-header {
+  align-items: center;
+  background: #f6f8fa;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.file-browser-header strong {
+  overflow-wrap: anywhere;
+}
+
+.file-list {
+  display: grid;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.file-list p {
+  color: #5b7083;
+  margin: 0;
+  padding: 14px;
+}
+
+.file-entry {
+  align-items: center;
+  background: #ffffff;
+  border-bottom: 1px solid #e3e9ef;
+  border-radius: 0;
+  color: #17212b;
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  min-height: 50px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.file-entry:hover:not(:disabled) {
+  background: #eef6ff;
+}
+
+.file-entry:last-child {
+  border-bottom: 0;
+}
+
+.file-entry span {
+  color: #5b7083;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.file-entry.directory strong {
+  color: #1659b7;
+}
+
+.power-actions {
+  align-items: center;
+  border: 1px solid #f1c2bc;
+  border-radius: 8px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.power-actions h3 {
+  font-size: 1rem;
+  margin: 0 0 4px;
+}
+
+.power-actions p {
+  margin: 0;
+}
+
+.telemetry-dashboard {
+  display: grid;
+  gap: 16px;
+}
+
+.telemetry-dashboard .manager-section-header {
+  margin-bottom: 16px;
+}
+
+.telemetry-dashboard p {
+  color: #415466;
+  margin: 4px 0 0;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.metric-card,
+.chart-card {
+  background: #f6f8fa;
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+}
+
+.metric-card {
+  display: grid;
+  gap: 6px;
+  min-height: 74px;
+  padding: 12px;
+}
+
+.metric-card span,
+.chart-range,
+.telemetry-path {
+  color: #415466;
+  font-size: 0.82rem;
+}
+
+.metric-card strong {
+  font-size: 1.2rem;
+}
+
+.chart-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chart-card {
+  padding: 12px;
+}
+
+.chart-card h4 {
+  font-size: 0.92rem;
+  margin: 0 0 10px;
+}
+
+.sparkline {
+  display: block;
+  height: 74px;
+  width: 100%;
+}
+
+.sparkline polyline {
+  fill: none;
+  stroke: #1f6feb;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+}
+
+.chart-range {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.chart-empty {
+  align-items: center;
+  color: #5b7083;
+  display: flex;
+  height: 74px;
+  justify-content: center;
+}
+
+.telemetry-path {
+  margin: 12px 0 0;
+  overflow-wrap: anywhere;
 }
 
 .actions {
@@ -282,19 +660,6 @@ input:focus {
   padding: 12px;
 }
 
-.help-panel p {
-  margin-bottom: 10px;
-}
-
-.help-panel ul {
-  margin: 0;
-  padding-left: 22px;
-}
-
-.help-panel li {
-  margin: 7px 0;
-}
-
 @media (max-width: 640px) {
   .app-header {
     padding: 28px 18px 24px;
@@ -307,14 +672,55 @@ input:focus {
 
   .section-heading button,
   .actions button,
-  .device-form button {
+  .device-form button,
+  .button-row button,
+  .power-actions button {
     width: 100%;
   }
 
+  .manager-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .monitor-form {
+    grid-template-columns: 1fr;
+  }
+
+  .camera-config-grid,
+  .camera-number-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .camera-config-grid label:first-child,
+  .camera-config-grid label:last-child {
+    grid-column: auto;
+  }
+
+  .metric-grid,
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manager-section-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .file-browser-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .tool-row,
-  .connection-state {
+  .connection-state,
+  .status-row,
+  .power-actions {
     align-items: flex-start;
     flex-direction: column;
     gap: 6px;
+  }
+
+  .status-value {
+    text-align: left;
   }
 }

@@ -9,7 +9,6 @@ export default function ActionButtons({
     <section className="panel">
       <div className="section-heading">
         <div>
-          <span className="section-number">3</span>
           <h2>Remote Access</h2>
         </div>
       </div>
