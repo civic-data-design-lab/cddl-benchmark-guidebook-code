@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ActionButtons from './components/ActionButtons.jsx';
 import CameraManager from './components/CameraManager.jsx';
 import DeviceForm from './components/DeviceForm.jsx';
@@ -21,11 +21,15 @@ const DEFAULT_MONITOR_CONFIG = {
 
 const DEFAULT_CAMERA_CONFIG = {
   basePath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/gopro',
+  captureOutputPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/gopro/view_check',
   streamScript: 'gopro_start_stream_lin_loop.py',
   stopScript: 'gopro_stop_stream.py',
   captureScript: 'gopro_capture_stream.py',
+  previewScript: 'gopro_preview_frame.py',
+  tapScript: 'gopro_stream_tap.py',
   collectorScript: 'gopro_download_stream_interval.py',
   streamSession: 'gopro_stream',
+  tapSession: 'gopro_tap',
   collectorSession: 'gopro_collector',
   streamUrl: 'udp://@0.0.0.0:8554',
   durationSeconds: 60,
@@ -33,6 +37,90 @@ const DEFAULT_CAMERA_CONFIG = {
   pauseSeconds: 3540,
   useSudo: true,
 };
+
+function getCaptureOutputDir(cameraConfig) {
+  const configured = String(cameraConfig?.captureOutputPath || '').trim();
+  if (configured) {
+    return configured.replace(/\/$/, '');
+  }
+  const base = String(cameraConfig?.basePath || '').trim().replace(/\/$/, '');
+  return base ? `${base}/view_check` : '';
+}
+
+function resolveCapturePath(parsed, captureOutputDir) {
+  const value = (parsed || '').trim();
+  if (!value) {
+    return null;
+  }
+
+  const basename = value.split('/').filter(Boolean).pop() || value;
+  const segmentCount = value.split('/').filter(Boolean).length;
+  const isRootLevelCapture = /^\/img_[^/]+\.(?:jpe?g|png)$/i.test(value);
+  const isFilenameOnly = !value.startsWith('/') || segmentCount <= 1;
+
+  if (captureOutputDir && (isFilenameOnly || isRootLevelCapture)) {
+    return `${captureOutputDir.replace(/\/$/, '')}/${basename}`;
+  }
+
+  return value;
+}
+
+function parseCaptureError(detail) {
+  const cleanDetail = (detail || '').replace(/\x1b\[[0-9;]*[mGKHF]/g, '');
+  const errorMatch = cleanDetail.match(/CAPTURE_ERROR:([^\n\r]+)/);
+  if (errorMatch) {
+    return errorMatch[1].trim();
+  }
+  if (/bind failed: Address already in use/i.test(cleanDetail)) {
+    return 'UDP port 8554 is already in use. Stop Live Preview, then Start Stream again (starts the stream tap).';
+  }
+  if (/Failed to open the video stream/i.test(cleanDetail)) {
+    return 'Could not open the video stream. Start the GoPro stream first, then capture again.';
+  }
+  return null;
+}
+
+function parseCapturePath(detail, captureOutputDir) {
+  const cleanDetail = (detail || '').replace(/\x1b\[[0-9;]*[mGKHF]/g, '');
+
+  const capPathMatch = cleanDetail.match(/CAPTURE_PATH:\s*([^\n\r]+)/);
+  if (capPathMatch) {
+    return resolveCapturePath(capPathMatch[1].trim(), captureOutputDir);
+  }
+
+  const legacyMatch = cleanDetail.match(/Frame captured and saved as ([^\n\r]+)/);
+  if (legacyMatch) {
+    return resolveCapturePath(legacyMatch[1].trim(), captureOutputDir);
+  }
+
+  const imagePaths = [...cleanDetail.matchAll(/(\/[^\s\n\r'"]+\.(?:jpe?g|png))/gi)].map((match) => match[1].trim());
+  if (imagePaths.length > 0) {
+    const longest = imagePaths.sort((a, b) => b.length - a.length)[0];
+    return resolveCapturePath(longest, captureOutputDir);
+  }
+
+  const filenameMatch = cleanDetail.match(/\b(img_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.(?:jpe?g|png))\b/i);
+  if (filenameMatch && captureOutputDir) {
+    return `${captureOutputDir.replace(/\/$/, '')}/${filenameMatch[1]}`;
+  }
+
+  return null;
+}
+
+function parsePreviewFromDetail(detail) {
+  const cleanDetail = (detail || '').replace(/\x1b\[[0-9;]*[mGKHF]/g, '');
+  const encodedMatch = cleanDetail.match(/PREVIEW_B64:([A-Za-z0-9+/=]+)/);
+  if (encodedMatch) {
+    return { ok: true, dataUrl: `data:image/jpeg;base64,${encodedMatch[1]}` };
+  }
+
+  const errorMatch = cleanDetail.match(/PREVIEW_ERROR:([^\n\r]+)/);
+  if (errorMatch) {
+    return { ok: false, message: errorMatch[1].trim() };
+  }
+
+  return { ok: false, message: 'Live preview output was not recognized.', detail: cleanDetail };
+}
 
 export default function App() {
   const [device, setDevice] = useState(DEFAULT_DEVICE);
@@ -55,6 +143,15 @@ export default function App() {
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busyAction, setBusyAction] = useState('');
+  const [captureImage, setCaptureImage] = useState(null); // { dataUrl, path }
+  const [capturePreviewError, setCapturePreviewError] = useState('');
+  const [livePreviewActive, setLivePreviewActive] = useState(false);
+  const [livePreviewImage, setLivePreviewImage] = useState('');
+  const [livePreviewError, setLivePreviewError] = useState('');
+  const [livePreviewFetching, setLivePreviewFetching] = useState(false);
+  const livePreviewInFlightRef = useRef(false);
+  const LIVE_PREVIEW_FPS = 5;
+  const LIVE_PREVIEW_INTERVAL_MS = 1000 / LIVE_PREVIEW_FPS;
 
   useEffect(() => {
     let mounted = true;
@@ -523,12 +620,121 @@ export default function App() {
       setStatus({ type: 'error', message: error.message });
     } finally {
       setBusyAction('');
+      if (shouldResumeLivePreview) {
+        setLivePreviewActive(true);
+      }
     }
+  }
+
+  const fetchLivePreviewFrame = useCallback(async () => {
+    if (!device.sshAddress || livePreviewInFlightRef.current || busyAction) {
+      return;
+    }
+
+    livePreviewInFlightRef.current = true;
+    setLivePreviewFetching(true);
+
+    try {
+      if (typeof window.plsk?.fetchLivePreview !== 'function') {
+        setLivePreviewError(
+          'Desktop API not loaded. Close any browser tab and start the app with: npm start',
+        );
+        return;
+      }
+
+      const result = await plskApi.fetchLivePreview(device.sshAddress, cameraConfig);
+      if (!result.ok) {
+        setLivePreviewError(result.detail ? `${result.message}\n${result.detail}` : result.message);
+        return;
+      }
+
+      if (result.dataUrl) {
+        setLivePreviewImage(result.dataUrl);
+        setLivePreviewError('');
+        return;
+      }
+
+      const parsed = parsePreviewFromDetail(result.detail || '');
+      if (parsed.ok) {
+        setLivePreviewImage(parsed.dataUrl);
+        setLivePreviewError('');
+      } else {
+        setLivePreviewError(parsed.detail ? `${parsed.message}\n${parsed.detail}` : parsed.message);
+      }
+    } catch (error) {
+      setLivePreviewError(error.message);
+    } finally {
+      livePreviewInFlightRef.current = false;
+      setLivePreviewFetching(false);
+    }
+  }, [busyAction, cameraConfig, device.sshAddress]);
+
+  useEffect(() => {
+    if (!livePreviewActive || activePage !== 'camera' || !device.sshAddress) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function previewLoop() {
+      while (!cancelled) {
+        const frameStartedAt = Date.now();
+        await fetchLivePreviewFrame();
+        const elapsed = Date.now() - frameStartedAt;
+        const waitMs = Math.max(0, LIVE_PREVIEW_INTERVAL_MS - elapsed);
+        if (waitMs > 0) {
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, waitMs);
+          });
+        }
+      }
+    }
+
+    previewLoop();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    LIVE_PREVIEW_INTERVAL_MS,
+    activePage,
+    device.sshAddress,
+    fetchLivePreviewFrame,
+    livePreviewActive,
+  ]);
+
+  useEffect(() => {
+    if (activePage !== 'camera') {
+      setLivePreviewActive(false);
+    }
+  }, [activePage]);
+
+  function toggleLivePreview() {
+    setLivePreviewActive((active) => {
+      if (active) {
+        setLivePreviewImage('');
+        setLivePreviewError('');
+        setLivePreviewFetching(false);
+        livePreviewInFlightRef.current = false;
+        return false;
+      }
+      setLivePreviewError('');
+      return true;
+    });
   }
 
   async function runCameraAction(action) {
     setBusyAction(`camera-${action}`);
     setStatus(null);
+
+    const shouldResumeLivePreview = action === 'capture-frame' && livePreviewActive;
+    if (shouldResumeLivePreview) {
+      setLivePreviewActive(false);
+    }
+
+    if (action === 'capture-frame') {
+      setCaptureImage(null);
+      setCapturePreviewError('');
+    }
 
     if (action === 'read-logs') {
       setCameraLog('[Stream]\nAttempting to connect via Bluetooth...\nNeed to run as sudo. Enter password:\n');
@@ -540,15 +746,73 @@ export default function App() {
         setCameraLog(result.detail || '');
       }
 
-      setStatus({
-        type: result.ok ? 'success' : 'error',
-        message: result.message,
-        detail: result.detail,
-      });
+      let previewFailed = false;
+
+      if (action === 'capture-frame') {
+        const detail = result.detail || '';
+        const captureError = parseCaptureError(detail);
+
+        if (!result.ok || captureError) {
+          previewFailed = true;
+          const previewMessage = captureError || result.message || 'Capture failed on the Jetson.';
+          setCapturePreviewError(detail ? `${previewMessage}\n\nRaw output:\n${detail}` : previewMessage);
+          setStatus({
+            type: 'error',
+            message: previewMessage,
+            detail,
+          });
+        } else {
+        const remotePath = parseCapturePath(detail, getCaptureOutputDir(cameraConfig));
+        if (remotePath) {
+          try {
+            const imgResult = await plskApi.fetchCapture(
+              device.sshAddress,
+              remotePath,
+              cameraConfig.useSudo !== false,
+            );
+            if (imgResult.ok) {
+              setCaptureImage({ dataUrl: imgResult.dataUrl, path: imgResult.path });
+            } else {
+              previewFailed = true;
+              const previewMessage = `Preview failed: ${imgResult.message}`;
+              setCapturePreviewError(
+                imgResult.detail ? `${previewMessage}\n${imgResult.detail}` : previewMessage,
+              );
+              setStatus({ type: 'error', message: previewMessage, detail: imgResult.detail });
+            }
+          } catch (fetchError) {
+            previewFailed = true;
+            setCapturePreviewError(`Preview fetch error: ${fetchError.message}`);
+            setStatus({ type: 'error', message: `Preview fetch error: ${fetchError.message}` });
+          }
+        } else {
+          previewFailed = true;
+          const previewMessage =
+            'Capture succeeded but could not find the saved file path in script output.';
+          setCapturePreviewError(`${previewMessage}\nRaw output: ${detail}`);
+          setStatus({
+            type: 'error',
+            message: previewMessage,
+            detail: `Raw output: ${detail}`,
+          });
+        }
+        }
+      }
+
+      if (!(action === 'capture-frame' && previewFailed)) {
+        setStatus({
+          type: result.ok ? 'success' : 'error',
+          message: result.message,
+          detail: result.detail,
+        });
+      }
     } catch (error) {
       setStatus({ type: 'error', message: error.message });
     } finally {
       setBusyAction('');
+      if (shouldResumeLivePreview) {
+        setLivePreviewActive(true);
+      }
     }
   }
 
@@ -602,11 +866,22 @@ export default function App() {
           cameraConfig={cameraConfig}
           cameraStatus={cameraStatus}
           cameraLog={cameraLog}
+          captureImage={captureImage}
+          capturePreviewError={capturePreviewError}
+          livePreviewActive={livePreviewActive}
+          livePreviewImage={livePreviewImage}
+          livePreviewError={livePreviewError}
+          livePreviewFetching={livePreviewFetching}
           busyAction={busyAction}
           onCameraConfigChange={setCameraConfig}
           onCheckCamera={checkCameraStatus}
           onCameraAction={runCameraAction}
           onGrantPasswordlessSudo={grantPasswordlessSudo}
+          onClearCapture={() => {
+            setCaptureImage(null);
+            setCapturePreviewError('');
+          }}
+          onToggleLivePreview={toggleLivePreview}
         />
       );
     }

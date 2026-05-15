@@ -62,11 +62,19 @@ export default function CameraManager({
   cameraConfig,
   cameraStatus,
   cameraLog,
+  captureImage,
+  capturePreviewError,
+  livePreviewActive,
+  livePreviewImage,
+  livePreviewError,
+  livePreviewFetching,
   busyAction,
   onCameraConfigChange,
   onCheckCamera,
   onCameraAction,
   onGrantPasswordlessSudo,
+  onClearCapture,
+  onToggleLivePreview,
 }) {
   const busy = Boolean(busyAction);
   const needsSudo = cameraStatus?.passwordlessSudo && cameraStatus.passwordlessSudo !== 'ok';
@@ -140,6 +148,14 @@ export default function CameraManager({
               autoComplete="off"
             />
           </label>
+          <label style={{ gridColumn: '1 / -1' }}>
+            <span>Capture Output Folder</span>
+            <input
+              value={cameraConfig.captureOutputPath || ''}
+              onChange={(event) => updateConfig('captureOutputPath', event.target.value)}
+              autoComplete="off"
+            />
+          </label>
           <label>
             <span>Collector Script</span>
             <input
@@ -200,6 +216,60 @@ export default function CameraManager({
               <button type="button" className="secondary" onClick={() => onCameraAction('capture-frame')} disabled={busy} style={{ width: '100%' }}>
                 {busyAction === 'camera-capture-frame' ? 'Capturing...' : '📷 Capture Frame'}
               </button>
+
+              {(captureImage || capturePreviewError || busyAction === 'camera-capture-frame') && (
+                <div className="capture-preview">
+                  {captureImage ? (
+                    <>
+                      <div className="capture-preview-header">
+                        <span className="capture-preview-filename" title={captureImage.path}>
+                          {captureImage.path.split('/').pop()}
+                        </span>
+                        <button type="button" className="secondary capture-preview-dismiss" onClick={onClearCapture}>
+                          ✕
+                        </button>
+                      </div>
+                      <img src={captureImage.dataUrl} alt="Captured frame" className="capture-preview-image" />
+                    </>
+                  ) : capturePreviewError ? (
+                    <p className="capture-preview-error">{capturePreviewError}</p>
+                  ) : (
+                    <p className="capture-preview-loading">Loading preview…</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="live-preview-row">
+              <button
+                type="button"
+                className={livePreviewActive ? 'secondary' : ''}
+                onClick={onToggleLivePreview}
+                disabled={busy && !livePreviewActive}
+                style={{ width: '100%' }}
+              >
+                {livePreviewActive ? '■ Stop Live Preview' : '▶ Live Preview'}
+              </button>
+
+              {livePreviewActive && (
+                <div className="live-preview-panel">
+                  <div className="live-preview-header">
+                    <span>{livePreviewFetching && !livePreviewImage ? 'Connecting to stream…' : 'Live stream'}</span>
+                    <span className="live-preview-badge">~5 fps</span>
+                  </div>
+                  {livePreviewImage ? (
+                    <img src={livePreviewImage} alt="Live GoPro preview" className="live-preview-image" />
+                  ) : (
+                    <div className="live-preview-placeholder">
+                      {livePreviewFetching ? 'Fetching frame…' : 'Waiting for first frame…'}
+                    </div>
+                  )}
+                  {livePreviewError && <p className="live-preview-error">{livePreviewError}</p>}
+                  {!livePreviewError && (
+                    <p className="live-preview-hint">Start Stream first (runs the stream tap). Actual fps depends on network speed.</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </section>

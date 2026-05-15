@@ -1,6 +1,7 @@
-const unavailable = () => Promise.reject(new Error('PLSK desktop API is unavailable. Run this app inside Electron.'));
+const unavailable = () =>
+  Promise.reject(new Error('PLSK desktop API is unavailable. Run this app inside Electron (npm start).'));
 
-export const plskApi = window.plsk || {
+const fallbackApi = {
   checkDependencies: unavailable,
   getTailscaleStatus: unavailable,
   testConnection: unavailable,
@@ -20,9 +21,29 @@ export const plskApi = window.plsk || {
   runBluetoothDeviceAction: unavailable,
   getCameraStatus: unavailable,
   runCameraAction: unavailable,
+  fetchCapture: unavailable,
+  fetchLivePreview: unavailable,
   grantPasswordlessSudo: unavailable,
   openTerminal: unavailable,
   openVSCode: unavailable,
   saveDevice: unavailable,
   loadDevice: unavailable,
 };
+
+function resolvePlskApi() {
+  if (typeof window !== 'undefined' && window.plsk) {
+    return window.plsk;
+  }
+  return fallbackApi;
+}
+
+export const plskApi = new Proxy(fallbackApi, {
+  get(_target, prop) {
+    const api = resolvePlskApi();
+    const value = api[prop];
+    if (typeof value === 'function') {
+      return (...args) => value.apply(api, args);
+    }
+    return value;
+  },
+});

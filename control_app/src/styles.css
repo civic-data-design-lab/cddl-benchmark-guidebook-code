@@ -575,6 +575,135 @@ select:focus {
   margin-top: 4px;
 }
 
+.capture-preview {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: 10px;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.capture-preview-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.capture-preview-filename {
+  color: #475569;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capture-preview-dismiss {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  line-height: 1;
+  min-width: 32px;
+  padding: 4px 8px;
+}
+
+.capture-preview-image {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  display: block;
+  max-height: 280px;
+  object-fit: contain;
+  width: 100%;
+}
+
+.capture-preview-loading {
+  color: #64748b;
+  font-size: 0.85rem;
+  margin: 0;
+  text-align: center;
+}
+
+.capture-preview-error {
+  color: #b91c1c;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.live-preview-row {
+  margin-top: 10px;
+}
+
+.live-preview-panel {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  margin-top: 10px;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.live-preview-header {
+  align-items: center;
+  color: #e2e8f0;
+  display: flex;
+  font-size: 0.82rem;
+  font-weight: 600;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.live-preview-badge {
+  background: #1e293b;
+  border-radius: 999px;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+}
+
+.live-preview-image {
+  background: #020617;
+  border-radius: 6px;
+  display: block;
+  max-height: 320px;
+  object-fit: contain;
+  width: 100%;
+}
+
+.live-preview-placeholder {
+  align-items: center;
+  background: #020617;
+  border: 1px dashed #475569;
+  border-radius: 6px;
+  color: #94a3b8;
+  display: flex;
+  font-size: 0.85rem;
+  justify-content: center;
+  min-height: 180px;
+  padding: 16px;
+  text-align: center;
+}
+
+.live-preview-error {
+  color: #fca5a5;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+}
+
+.live-preview-hint {
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin: 8px 0 0;
+}
+
 
 .file-browser {
   border: 1px solid #e3e9ef;
