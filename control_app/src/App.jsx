@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { buildPreviewStreamUrl } from './lib/previewStream.js';
 import ActionButtons from './components/ActionButtons.jsx';
 import CameraManager from './components/CameraManager.jsx';
 import DeviceForm from './components/DeviceForm.jsx';
@@ -27,14 +28,18 @@ const DEFAULT_CAMERA_CONFIG = {
   captureScript: 'gopro_capture_stream.py',
   previewScript: 'gopro_preview_frame.py',
   tapScript: 'gopro_stream_tap.py',
+  mjpegScript: 'gopro_mjpeg_server.py',
   collectorScript: 'gopro_download_stream_interval.py',
   streamSession: 'gopro_stream',
   tapSession: 'gopro_tap',
+  mjpegSession: 'gopro_mjpeg',
   collectorSession: 'gopro_collector',
   streamUrl: 'udp://@0.0.0.0:8554',
   durationSeconds: 60,
   samples: 24,
   pauseSeconds: 3540,
+  livePreviewFps: 5,
+  previewStreamPort: 8089,
   useSudo: true,
 };
 
@@ -107,21 +112,6 @@ function parseCapturePath(detail, captureOutputDir) {
   return null;
 }
 
-function parsePreviewFromDetail(detail) {
-  const cleanDetail = (detail || '').replace(/\x1b\[[0-9;]*[mGKHF]/g, '');
-  const encodedMatch = cleanDetail.match(/PREVIEW_B64:([A-Za-z0-9+/=]+)/);
-  if (encodedMatch) {
-    return { ok: true, dataUrl: `data:image/jpeg;base64,${encodedMatch[1]}` };
-  }
-
-  const errorMatch = cleanDetail.match(/PREVIEW_ERROR:([^\n\r]+)/);
-  if (errorMatch) {
-    return { ok: false, message: errorMatch[1].trim() };
-  }
-
-  return { ok: false, message: 'Live preview output was not recognized.', detail: cleanDetail };
-}
-
 export default function App() {
   const [device, setDevice] = useState(DEFAULT_DEVICE);
   const [dependencies, setDependencies] = useState(null);
@@ -146,12 +136,15 @@ export default function App() {
   const [captureImage, setCaptureImage] = useState(null); // { dataUrl, path }
   const [capturePreviewError, setCapturePreviewError] = useState('');
   const [livePreviewActive, setLivePreviewActive] = useState(false);
-  const [livePreviewImage, setLivePreviewImage] = useState('');
   const [livePreviewError, setLivePreviewError] = useState('');
-  const [livePreviewFetching, setLivePreviewFetching] = useState(false);
-  const livePreviewInFlightRef = useRef(false);
-  const LIVE_PREVIEW_FPS = 5;
-  const LIVE_PREVIEW_INTERVAL_MS = 1000 / LIVE_PREVIEW_FPS;
+  const [livePreviewStreamKey, setLivePreviewStreamKey] = useState(0);
+
+  const livePreviewStreamUrl = useMemo(() => {
+    if (!livePreviewActive || !device.sshAddress) {
+      return '';
+    }
+    return buildPreviewStreamUrl(device.sshAddress, cameraConfig.previewStreamPort);
+  }, [cameraConfig.previewStreamPort, device.sshAddress, livePreviewActive]);
 
   useEffect(() => {
     let mounted = true;
@@ -626,82 +619,6 @@ export default function App() {
     }
   }
 
-  const fetchLivePreviewFrame = useCallback(async () => {
-    if (!device.sshAddress || livePreviewInFlightRef.current || busyAction) {
-      return;
-    }
-
-    livePreviewInFlightRef.current = true;
-    setLivePreviewFetching(true);
-
-    try {
-      if (typeof window.plsk?.fetchLivePreview !== 'function') {
-        setLivePreviewError(
-          'Desktop API not loaded. Close any browser tab and start the app with: npm start',
-        );
-        return;
-      }
-
-      const result = await plskApi.fetchLivePreview(device.sshAddress, cameraConfig);
-      if (!result.ok) {
-        setLivePreviewError(result.detail ? `${result.message}\n${result.detail}` : result.message);
-        return;
-      }
-
-      if (result.dataUrl) {
-        setLivePreviewImage(result.dataUrl);
-        setLivePreviewError('');
-        return;
-      }
-
-      const parsed = parsePreviewFromDetail(result.detail || '');
-      if (parsed.ok) {
-        setLivePreviewImage(parsed.dataUrl);
-        setLivePreviewError('');
-      } else {
-        setLivePreviewError(parsed.detail ? `${parsed.message}\n${parsed.detail}` : parsed.message);
-      }
-    } catch (error) {
-      setLivePreviewError(error.message);
-    } finally {
-      livePreviewInFlightRef.current = false;
-      setLivePreviewFetching(false);
-    }
-  }, [busyAction, cameraConfig, device.sshAddress]);
-
-  useEffect(() => {
-    if (!livePreviewActive || activePage !== 'camera' || !device.sshAddress) {
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    async function previewLoop() {
-      while (!cancelled) {
-        const frameStartedAt = Date.now();
-        await fetchLivePreviewFrame();
-        const elapsed = Date.now() - frameStartedAt;
-        const waitMs = Math.max(0, LIVE_PREVIEW_INTERVAL_MS - elapsed);
-        if (waitMs > 0) {
-          await new Promise((resolve) => {
-            window.setTimeout(resolve, waitMs);
-          });
-        }
-      }
-    }
-
-    previewLoop();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    LIVE_PREVIEW_INTERVAL_MS,
-    activePage,
-    device.sshAddress,
-    fetchLivePreviewFrame,
-    livePreviewActive,
-  ]);
-
   useEffect(() => {
     if (activePage !== 'camera') {
       setLivePreviewActive(false);
@@ -711,13 +628,11 @@ export default function App() {
   function toggleLivePreview() {
     setLivePreviewActive((active) => {
       if (active) {
-        setLivePreviewImage('');
         setLivePreviewError('');
-        setLivePreviewFetching(false);
-        livePreviewInFlightRef.current = false;
         return false;
       }
       setLivePreviewError('');
+      setLivePreviewStreamKey((value) => value + 1);
       return true;
     });
   }
@@ -869,9 +784,9 @@ export default function App() {
           captureImage={captureImage}
           capturePreviewError={capturePreviewError}
           livePreviewActive={livePreviewActive}
-          livePreviewImage={livePreviewImage}
+          livePreviewStreamUrl={livePreviewStreamUrl}
+          livePreviewStreamKey={livePreviewStreamKey}
           livePreviewError={livePreviewError}
-          livePreviewFetching={livePreviewFetching}
           busyAction={busyAction}
           onCameraConfigChange={setCameraConfig}
           onCheckCamera={checkCameraStatus}
@@ -882,6 +797,7 @@ export default function App() {
             setCapturePreviewError('');
           }}
           onToggleLivePreview={toggleLivePreview}
+          onLivePreviewStreamError={setLivePreviewError}
         />
       );
     }

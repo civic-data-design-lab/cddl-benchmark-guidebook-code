@@ -20,14 +20,18 @@ const DEFAULT_CAMERA_CONFIG = {
   captureScript: 'gopro_capture_stream.py',
   previewScript: 'gopro_preview_frame.py',
   tapScript: 'gopro_stream_tap.py',
+  mjpegScript: 'gopro_mjpeg_server.py',
   collectorScript: 'gopro_download_stream_interval.py',
   streamSession: 'gopro_stream',
   tapSession: 'gopro_tap',
+  mjpegSession: 'gopro_mjpeg',
+  previewStreamPort: 8089,
   collectorSession: 'gopro_collector',
   streamUrl: 'udp://@0.0.0.0:8554',
   durationSeconds: 60,
   samples: 24,
   pauseSeconds: 3540,
+  livePreviewFps: 5,
   useSudo: true,
 };
 
@@ -499,6 +503,7 @@ function validateCameraConfig(config = {}) {
     ['captureScript', DEFAULT_CAMERA_CONFIG.captureScript],
     ['previewScript', DEFAULT_CAMERA_CONFIG.previewScript],
     ['tapScript', DEFAULT_CAMERA_CONFIG.tapScript],
+    ['mjpegScript', DEFAULT_CAMERA_CONFIG.mjpegScript],
     ['collectorScript', DEFAULT_CAMERA_CONFIG.collectorScript],
   ];
   const scripts = {};
@@ -524,6 +529,16 @@ function validateCameraConfig(config = {}) {
   const tapSession = validateSessionName(config.tapSession, DEFAULT_CAMERA_CONFIG.tapSession);
   if (!tapSession.valid) {
     return tapSession;
+  }
+
+  const mjpegSession = validateSessionName(config.mjpegSession, DEFAULT_CAMERA_CONFIG.mjpegSession);
+  if (!mjpegSession.valid) {
+    return mjpegSession;
+  }
+
+  const previewStreamPort = Number(config.previewStreamPort ?? DEFAULT_CAMERA_CONFIG.previewStreamPort);
+  if (!Number.isInteger(previewStreamPort) || previewStreamPort < 1024 || previewStreamPort > 65535) {
+    return { valid: false, message: 'Preview stream port must be between 1024 and 65535.' };
   }
 
   const streamUrl = String(config.streamUrl || DEFAULT_CAMERA_CONFIG.streamUrl).trim();
@@ -553,6 +568,11 @@ function validateCameraConfig(config = {}) {
     return { valid: false, message: captureOutputPath.message };
   }
 
+  const livePreviewFps = Number(config.livePreviewFps ?? DEFAULT_CAMERA_CONFIG.livePreviewFps);
+  if (!Number.isFinite(livePreviewFps) || livePreviewFps < 1 || livePreviewFps > 15) {
+    return { valid: false, message: 'Preview FPS must be between 1 and 15.' };
+  }
+
   return {
     valid: true,
     basePath: basePath.value,
@@ -560,11 +580,14 @@ function validateCameraConfig(config = {}) {
     ...scripts,
     streamSession: streamSession.value,
     tapSession: tapSession.value,
+    mjpegSession: mjpegSession.value,
     collectorSession: collectorSession.value,
     streamUrl,
     durationSeconds,
     samples,
     pauseSeconds,
+    livePreviewFps: Math.round(livePreviewFps),
+    previewStreamPort,
     useSudo: config.useSudo !== false,
   };
 }
@@ -1464,6 +1487,14 @@ ipcMain.handle('plsk:camera-action', async (_event, sshAddress, action, config) 
   const tapCommand = `cd ${shellQuote(validation.basePath)} && ${pythonCommandWithEnv(validation.tapScript, {
     STREAM_URL: validation.streamUrl,
     CAPTURE_OUTPUT_DIR: validation.captureOutputPath,
+    STREAM_TAP_FPS: validation.livePreviewFps,
+    PREVIEW_JPEG_QUALITY: 55,
+  })}`;
+  const mjpegCommand = `cd ${shellQuote(validation.basePath)} && ${pythonCommandWithEnv(validation.mjpegScript, {
+    CAPTURE_OUTPUT_DIR: validation.captureOutputPath,
+    STREAM_TAP_FPS: validation.livePreviewFps,
+    PREVIEW_STREAM_FPS: validation.livePreviewFps,
+    PREVIEW_STREAM_PORT: validation.previewStreamPort,
   })}`;
   const sharedFrameEnv = {
     STREAM_URL: validation.streamUrl,
@@ -1505,12 +1536,25 @@ if [ -f "$base/$tap_script" ]; then
 else
   printf ' Stream tap script missing; capture while streaming may fail.'
 fi
+mjpeg_session=${shellQuote(validation.mjpegSession)}
+mjpeg_command=${shellQuote(mjpegCommand)}
+mjpeg_script=${shellQuote(validation.mjpegScript)}
+if [ -f "$base/$mjpeg_script" ]; then
+  if tmux has-session -t "$mjpeg_session" 2>/dev/null; then tmux kill-session -t "$mjpeg_session"; fi
+  sleep 2
+  tmux new-session -d -s "$mjpeg_session" "$mjpeg_command"
+  printf ' MJPEG preview started on port ${validation.previewStreamPort}.'
+else
+  printf ' MJPEG preview script missing.'
+fi
 `,
     'stop-stream': `
 base=${shellQuote(validation.basePath)}
 session=${shellQuote(validation.streamSession)}
 tap_session=${shellQuote(validation.tapSession)}
+mjpeg_session=${shellQuote(validation.mjpegSession)}
 stop_script=${shellQuote(validation.stopScript)}
+if tmux has-session -t "$mjpeg_session" 2>/dev/null; then tmux kill-session -t "$mjpeg_session"; fi
 if tmux has-session -t "$tap_session" 2>/dev/null; then tmux kill-session -t "$tap_session"; fi
 if tmux has-session -t "$session" 2>/dev/null; then tmux kill-session -t "$session"; fi
 if [ -f "$base/$stop_script" ]; then cd "$base" && ${pythonCommand(validation.stopScript)}; else printf 'Stop script not found, killed tmux session only.'; fi

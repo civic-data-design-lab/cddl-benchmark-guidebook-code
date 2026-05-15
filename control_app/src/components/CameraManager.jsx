@@ -65,9 +65,9 @@ export default function CameraManager({
   captureImage,
   capturePreviewError,
   livePreviewActive,
-  livePreviewImage,
+  livePreviewStreamUrl,
+  livePreviewStreamKey,
   livePreviewError,
-  livePreviewFetching,
   busyAction,
   onCameraConfigChange,
   onCheckCamera,
@@ -75,9 +75,13 @@ export default function CameraManager({
   onGrantPasswordlessSudo,
   onClearCapture,
   onToggleLivePreview,
+  onLivePreviewStreamError,
 }) {
   const busy = Boolean(busyAction);
   const needsSudo = cameraStatus?.passwordlessSudo && cameraStatus.passwordlessSudo !== 'ok';
+  const livePreviewSrc = livePreviewStreamUrl
+    ? `${livePreviewStreamUrl}${livePreviewStreamUrl.includes('?') ? '&' : '?'}v=${livePreviewStreamKey}`
+    : '';
 
   function updateConfig(key, value) {
     onCameraConfigChange({ ...cameraConfig, [key]: value });
@@ -241,6 +245,31 @@ export default function CameraManager({
             </div>
 
             <div className="live-preview-row">
+              <div className="live-preview-settings">
+              <label className="live-preview-fps">
+                <span>Preview video FPS</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="15"
+                  value={cameraConfig.livePreviewFps ?? 5}
+                  onChange={(event) => updateConfig('livePreviewFps', Number(event.target.value))}
+                  disabled={livePreviewActive}
+                />
+              </label>
+              <label className="live-preview-fps">
+                <span>Preview stream port</span>
+                <input
+                  type="number"
+                  min="1024"
+                  max="65535"
+                  value={cameraConfig.previewStreamPort ?? 8089}
+                  onChange={(event) => updateConfig('previewStreamPort', Number(event.target.value))}
+                  disabled={livePreviewActive}
+                />
+              </label>
+              </div>
+
               <button
                 type="button"
                 className={livePreviewActive ? 'secondary' : ''}
@@ -254,19 +283,30 @@ export default function CameraManager({
               {livePreviewActive && (
                 <div className="live-preview-panel">
                   <div className="live-preview-header">
-                    <span>{livePreviewFetching && !livePreviewImage ? 'Connecting to stream…' : 'Live stream'}</span>
-                    <span className="live-preview-badge">~5 fps</span>
+                    <span>Live video preview</span>
+                    <span className="live-preview-badge">MJPEG · {cameraConfig.livePreviewFps ?? 5} fps</span>
                   </div>
-                  {livePreviewImage ? (
-                    <img src={livePreviewImage} alt="Live GoPro preview" className="live-preview-image" />
+                  {livePreviewSrc ? (
+                    <img
+                      key={livePreviewStreamKey}
+                      src={livePreviewSrc}
+                      alt="Live GoPro MJPEG stream"
+                      className="live-preview-image"
+                      onLoad={() => onLivePreviewStreamError('')}
+                      onError={() =>
+                        onLivePreviewStreamError(
+                          `Could not load MJPEG stream at ${livePreviewStreamUrl}. Start Stream, wait a few seconds, and ensure port ${cameraConfig.previewStreamPort ?? 8089} is reachable on Tailscale.`,
+                        )
+                      }
+                    />
                   ) : (
-                    <div className="live-preview-placeholder">
-                      {livePreviewFetching ? 'Fetching frame…' : 'Waiting for first frame…'}
-                    </div>
+                    <div className="live-preview-placeholder">Set Jetson SSH address to start preview.</div>
                   )}
                   {livePreviewError && <p className="live-preview-error">{livePreviewError}</p>}
-                  {!livePreviewError && (
-                    <p className="live-preview-hint">Start Stream first (runs the stream tap). Actual fps depends on network speed.</p>
+                  {!livePreviewError && livePreviewStreamUrl && (
+                    <p className="live-preview-hint">
+                      HTTP stream from Jetson (shared frames only). Stop Stream before running CV inference on UDP :8554.
+                    </p>
                   )}
                 </div>
               )}

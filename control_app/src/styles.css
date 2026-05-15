@@ -638,6 +638,25 @@ select:focus {
   margin-top: 10px;
 }
 
+.live-preview-fps {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.live-preview-settings {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 8px;
+}
+
+.live-preview-fps span {
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .live-preview-panel {
   background: #0f172a;
   border: 1px solid #334155;
