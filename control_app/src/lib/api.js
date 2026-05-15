@@ -20,6 +20,7 @@ export const plskApi = window.plsk || {
   runBluetoothDeviceAction: unavailable,
   getCameraStatus: unavailable,
   runCameraAction: unavailable,
+  grantPasswordlessSudo: unavailable,
   openTerminal: unavailable,
   openVSCode: unavailable,
   saveDevice: unavailable,

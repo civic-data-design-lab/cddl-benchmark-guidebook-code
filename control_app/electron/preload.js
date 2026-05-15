@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('plsk', {
     ipcRenderer.invoke('plsk:bluetooth-device-action', sshAddress, action, deviceAddress),
   getCameraStatus: (sshAddress, config) => ipcRenderer.invoke('plsk:camera-status', sshAddress, config),
   runCameraAction: (sshAddress, action, config) => ipcRenderer.invoke('plsk:camera-action', sshAddress, action, config),
+  grantPasswordlessSudo: (sshAddress, username) => ipcRenderer.invoke('plsk:grant-passwordless-sudo', sshAddress, username),
   openTerminal: (sshAddress) => ipcRenderer.invoke('plsk:open-terminal', sshAddress),
   openVSCode: (sshAddress, remotePath) => ipcRenderer.invoke('plsk:open-vscode', sshAddress, remotePath),
   saveDevice: (device) => ipcRenderer.invoke('plsk:save-device', device),

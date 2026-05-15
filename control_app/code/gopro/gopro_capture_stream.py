@@ -2,11 +2,9 @@ import cv2
 from rich.console import Console
 import time
 from datetime import datetime
-from dotenv import load_dotenv
 import os
 
 console = Console()
-load_dotenv()
 
 def get_bbox_from_env():
     # Expects CROP_BBOX as "x1,y1,x2,y2"
@@ -93,8 +91,7 @@ def capture_frame_after_delay(stream_url, delay=1, output_directory='/home/lcau/
     cv2.destroyAllWindows()
 
 def main():
-    stream_url = "udp://@0.0.0.0:8554"  # Your stream URL
-    # stream_url = "udp://127.0.0.1:8556"  # Your stream URL
+    stream_url = os.getenv("STREAM_URL", "udp://@0.0.0.0:8554")
 
     # Option 1: Use environment variable (default)
     capture_frame_after_delay(stream_url)

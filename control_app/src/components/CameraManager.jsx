@@ -1,4 +1,4 @@
-const cameraStatusRows = [
+const dependencyRows = [
   ['basePath', 'Code Folder'],
   ['python', 'Python'],
   ['tmux', 'tmux'],
@@ -8,10 +8,55 @@ const cameraStatusRows = [
   ['streamScript', 'Stream Script'],
   ['captureScript', 'Capture Script'],
   ['collectorScript', 'Collector Script'],
+  ['passwordlessSudo', 'Passwordless sudo'],
+];
+
+const runtimeRows = [
   ['streamSession', 'Stream Session'],
+  ['goproConnection', 'GoPro Connection'],
+  ['streamHealth', 'Stream Health'],
   ['collectorSession', 'Collector Session'],
   ['udp8554', 'UDP 8554'],
 ];
+
+const STATUS_COLORS = {
+  ok: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
+  missing: { bg: '#fee2e2', color: '#b91c1c', border: '#fecaca' },
+  'needs-password': { bg: '#fef9c3', color: '#a16207', border: '#fef08a' },
+  running: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
+  stopped: { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' },
+  connected: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
+  failed: { bg: '#fee2e2', color: '#b91c1c', border: '#fecaca' },
+  retrying: { bg: '#fef9c3', color: '#a16207', border: '#fef08a' },
+  streaming: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
+  listening: { bg: '#dbeafe', color: '#1d4ed8', border: '#bfdbfe' },
+  unknown: { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' },
+  'running-no-stream-yet': { bg: '#fef9c3', color: '#a16207', border: '#fef08a' },
+  'Not checked': { bg: '#f1f5f9', color: '#94a3b8', border: '#e2e8f0' },
+};
+
+function StatusBadge({ value }) {
+  const style = STATUS_COLORS[value] || STATUS_COLORS['Not checked'];
+  const display = value || 'Not checked';
+  return (
+    <span
+      style={{
+        background: style.bg,
+        border: `1px solid ${style.border}`,
+        borderRadius: '6px',
+        color: style.color,
+        display: 'inline-block',
+        fontSize: '0.8rem',
+        fontWeight: 700,
+        lineHeight: 1,
+        padding: '4px 10px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {display}
+    </span>
+  );
+}
 
 export default function CameraManager({
   cameraConfig,
@@ -21,8 +66,10 @@ export default function CameraManager({
   onCameraConfigChange,
   onCheckCamera,
   onCameraAction,
+  onGrantPasswordlessSudo,
 }) {
   const busy = Boolean(busyAction);
+  const needsSudo = cameraStatus?.passwordlessSudo && cameraStatus.passwordlessSudo !== 'ok';
 
   function updateConfig(key, value) {
     onCameraConfigChange({ ...cameraConfig, [key]: value });
@@ -30,25 +77,37 @@ export default function CameraManager({
 
   return (
     <section className="panel camera-manager">
+      {/* ── Header ── */}
       <div className="section-heading">
         <div>
           <h2>Camera Manager</h2>
         </div>
-
         <button type="button" onClick={onCheckCamera} disabled={busy}>
           {busyAction === 'camera-status' ? 'Checking...' : 'Check Camera'}
         </button>
       </div>
 
-      <div className="manager-section">
-        <div className="manager-section-header">
-          <div>
-            <h3>GoPro Scripts</h3>
-            <p>Remote paths on the Jetson.</p>
+      {/* ── Sudo callout ── */}
+      {needsSudo && (
+        <div className="sudo-callout">
+          <div className="sudo-callout-text">
+            <strong>⚠ Passwordless sudo required</strong>
+            <p>The GoPro Bluetooth script needs passwordless sudo to run on the Jetson. Click Grant once — it persists across reboots.</p>
           </div>
+          <button type="button" onClick={onGrantPasswordlessSudo} disabled={busy}>
+            {busyAction === 'grant-sudo' ? 'Granting...' : 'Grant Passwordless Sudo'}
+          </button>
         </div>
+      )}
 
-        <div className="camera-config-grid">
+      {/* ── GoPro Scripts (collapsible) ── */}
+      <details className="manager-section config-details">
+        <summary>
+          <span>GoPro Scripts</span>
+          <small>Remote paths on the Jetson</small>
+        </summary>
+
+        <div className="camera-config-grid" style={{ marginTop: '14px' }}>
           <label>
             <span>Code Folder</span>
             <input
@@ -97,9 +156,18 @@ export default function CameraManager({
               autoComplete="off"
             />
           </label>
+          <label className="checkbox-row" style={{ gridColumn: '1 / -1' }}>
+            <input
+              type="checkbox"
+              checked={cameraConfig.useSudo}
+              onChange={(event) => updateConfig('useSudo', event.target.checked)}
+            />
+            <span>Run GoPro scripts with sudo</span>
+          </label>
         </div>
-      </div>
+      </details>
 
+      {/* ── Streaming + Interval Recording ── */}
       <div className="manager-grid">
         <section className="manager-section">
           <div className="manager-section-header">
@@ -126,8 +194,11 @@ export default function CameraManager({
               <button type="button" className="secondary" onClick={() => onCameraAction('stop-stream')} disabled={busy}>
                 {busyAction === 'camera-stop-stream' ? 'Stopping...' : 'Stop Stream'}
               </button>
-              <button type="button" className="secondary" onClick={() => onCameraAction('capture-frame')} disabled={busy}>
-                {busyAction === 'camera-capture-frame' ? 'Capturing...' : 'Capture Frame'}
+            </div>
+
+            <div className="capture-row">
+              <button type="button" className="secondary" onClick={() => onCameraAction('capture-frame')} disabled={busy} style={{ width: '100%' }}>
+                {busyAction === 'camera-capture-frame' ? 'Capturing...' : '📷 Capture Frame'}
               </button>
             </div>
           </div>
@@ -151,7 +222,7 @@ export default function CameraManager({
               />
             </label>
             <label>
-              <span>Duration</span>
+              <span>Duration (s)</span>
               <input
                 type="number"
                 min="1"
@@ -169,7 +240,7 @@ export default function CameraManager({
               />
             </label>
             <label>
-              <span>Pause</span>
+              <span>Pause (s)</span>
               <input
                 type="number"
                 min="0"
@@ -190,29 +261,62 @@ export default function CameraManager({
         </section>
       </div>
 
+      {/* ── Status ── */}
       <div className="manager-section">
         <div className="manager-section-header">
           <div>
             <h3>Status</h3>
-            <p>Dependencies and tmux session state.</p>
+            <p>Dependencies, connection state, and stream health.</p>
           </div>
-          <button type="button" className="secondary" onClick={() => onCameraAction('read-logs')} disabled={busy}>
-            {busyAction === 'camera-read-logs' ? 'Loading...' : 'Read Logs'}
-          </button>
+          <div className="button-row">
+            {!needsSudo && (
+              <button type="button" className="secondary" onClick={onGrantPasswordlessSudo} disabled={busy} style={{ fontSize: '0.82rem' }}>
+                {busyAction === 'grant-sudo' ? 'Granting...' : 'Grant Sudo'}
+              </button>
+            )}
+            <button type="button" className="secondary" onClick={() => onCameraAction('read-logs')} disabled={busy}>
+              {busyAction === 'camera-read-logs' ? 'Loading...' : 'Read Logs'}
+            </button>
+          </div>
         </div>
 
-        <div className="status-table">
-          {cameraStatusRows.map(([key, label]) => (
-            <div className="status-row" key={key}>
-              <span>{label}</span>
-              <div className="status-value">
-                <strong>{cameraStatus?.[key] || 'Not checked'}</strong>
-              </div>
+        <div className="status-two-col">
+          {/* Dependencies */}
+          <div>
+            <p className="status-group-label">Dependencies</p>
+            <div className="status-table">
+              {dependencyRows.map(([key, label]) => (
+                <div className="status-row" key={key}>
+                  <span>{label}</span>
+                  <StatusBadge value={cameraStatus?.[key]} />
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+
+          {/* Runtime */}
+          <div>
+            <p className="status-group-label">Runtime</p>
+            <div className="status-table">
+              {runtimeRows.map(([key, label]) => (
+                <div className="status-row" key={key}>
+                  <span>{label}</span>
+                  <StatusBadge value={cameraStatus?.[key]} />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {cameraLog ? <pre className="camera-log">{cameraLog}</pre> : null}
+        {/* Log */}
+        {cameraLog && (
+          <div className="camera-log-wrap">
+            <div className="camera-log-header">
+              <span>tmux Output</span>
+            </div>
+            <pre className="camera-log">{cameraLog}</pre>
+          </div>
+        )}
       </div>
     </section>
   );

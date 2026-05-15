@@ -20,7 +20,7 @@ const DEFAULT_MONITOR_CONFIG = {
 };
 
 const DEFAULT_CAMERA_CONFIG = {
-  basePath: '/home/lcau/benchmark-aus-2/code/gopro',
+  basePath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/gopro',
   streamScript: 'gopro_start_stream_lin_loop.py',
   stopScript: 'gopro_stop_stream.py',
   captureScript: 'gopro_capture_stream.py',
@@ -31,6 +31,7 @@ const DEFAULT_CAMERA_CONFIG = {
   durationSeconds: 60,
   samples: 24,
   pauseSeconds: 3540,
+  useSudo: true,
 };
 
 export default function App() {
@@ -497,9 +498,41 @@ export default function App() {
     }
   }
 
+  async function grantPasswordlessSudo() {
+    const confirmed = window.confirm(
+      'This will grant passwordless sudo to the Jetson user via /etc/sudoers.d/.\n\nContinue?',
+    );
+    if (!confirmed) return;
+
+    setBusyAction('grant-sudo');
+    setStatus(null);
+
+    // Extract username from sshAddress (e.g. "lcau@100.x.x.x" → "lcau")
+    const username = device.sshAddress.includes('@')
+      ? device.sshAddress.split('@')[0]
+      : 'lcau';
+
+    try {
+      const result = await plskApi.grantPasswordlessSudo(device.sshAddress, username);
+      setStatus({
+        type: result.ok ? 'success' : 'error',
+        message: result.message,
+        detail: result.detail,
+      });
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message });
+    } finally {
+      setBusyAction('');
+    }
+  }
+
   async function runCameraAction(action) {
     setBusyAction(`camera-${action}`);
     setStatus(null);
+
+    if (action === 'read-logs') {
+      setCameraLog('[Stream]\nAttempting to connect via Bluetooth...\nNeed to run as sudo. Enter password:\n');
+    }
 
     try {
       const result = await plskApi.runCameraAction(device.sshAddress, action, cameraConfig);
@@ -573,6 +606,7 @@ export default function App() {
           onCameraConfigChange={setCameraConfig}
           onCheckCamera={checkCameraStatus}
           onCameraAction={runCameraAction}
+          onGrantPasswordlessSudo={grantPasswordlessSudo}
         />
       );
     }

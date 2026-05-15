@@ -13,7 +13,7 @@ const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL || 'http://127.0.0.1
 const JETSON_TELEMETRY_LOG_PATH = '/home/lcau/jetson_status_log.csv';
 const DEFAULT_MONITOR_SESSION = 'plsk_monitor';
 const DEFAULT_CAMERA_CONFIG = {
-  basePath: '/home/lcau/benchmark-aus-2/code/gopro',
+  basePath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/gopro',
   streamScript: 'gopro_start_stream_lin_loop.py',
   stopScript: 'gopro_stop_stream.py',
   captureScript: 'gopro_capture_stream.py',
@@ -24,6 +24,7 @@ const DEFAULT_CAMERA_CONFIG = {
   durationSeconds: 60,
   samples: 24,
   pauseSeconds: 3540,
+  useSudo: true,
 };
 
 function createWindow() {
@@ -492,6 +493,7 @@ function validateCameraConfig(config = {}) {
     durationSeconds,
     samples,
     pauseSeconds,
+    useSudo: config.useSudo !== false,
   };
 }
 
@@ -1239,6 +1241,49 @@ bluetoothctl ${action} ${validation.address}${trustedStep}
   };
 });
 
+ipcMain.handle('plsk:grant-passwordless-sudo', async (_event, sshAddress, username) => {
+  const validation = validateSshAddress(sshAddress);
+  if (!validation.valid) {
+    return { ok: false, message: validation.message, detail: '' };
+  }
+
+  const user = String(username || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
+  if (!user) {
+    return { ok: false, message: 'Enter a valid Jetson username.', detail: '' };
+  }
+
+  const script = `
+sudoers_file=/etc/sudoers.d/${user}-nopasswd
+rule="${user} ALL=(ALL) NOPASSWD: ALL"
+if [ -f "$sudoers_file" ] && grep -qF "$rule" "$sudoers_file"; then
+  printf 'Passwordless sudo already configured for %s.' '${user}'
+  exit 0
+fi
+printf '%s\\n' "$rule" | sudo tee "$sudoers_file" > /dev/null
+sudo chmod 440 "$sudoers_file"
+if sudo -n true > /dev/null 2>&1; then
+  printf 'Passwordless sudo granted for %s.' '${user}'
+else
+  printf 'Rule written but sudo -n test failed. Check sudoers manually.' >&2
+  exit 1
+fi
+`.trim();
+
+  const result = await runSshRemoteCommand(sshAddress, `sh -lc ${shellQuote(script)}`, {
+    connectTimeout: 10,
+  });
+
+  if (!result.ok) {
+    return result;
+  }
+
+  return {
+    ok: true,
+    message: result.stdout || `Passwordless sudo granted for ${user}.`,
+    detail: result.stdout,
+  };
+});
+
 ipcMain.handle('plsk:camera-status', async (_event, sshAddress, config) => {
   const validation = validateCameraConfig(config);
   if (!validation.valid) {
@@ -1257,6 +1302,7 @@ if [ -d "$base" ]; then print_field basePath ok; else print_field basePath missi
 if command -v python3 >/dev/null 2>&1; then print_field python ok; else print_field python missing; fi
 if command -v tmux >/dev/null 2>&1; then print_field tmux ok; else print_field tmux missing; fi
 if command -v ffmpeg >/dev/null 2>&1; then print_field ffmpeg ok; else print_field ffmpeg missing; fi
+if sudo -n true >/dev/null 2>&1; then print_field passwordlessSudo ok; else print_field passwordlessSudo needs-password; fi
 python3 - <<'PY' >/dev/null 2>&1
 import open_gopro
 PY
@@ -1268,9 +1314,33 @@ if [ "$?" -eq 0 ]; then print_field opencv ok; else print_field opencv missing; 
 if [ -f "$base/$stream_script" ]; then print_field streamScript ok; else print_field streamScript missing; fi
 if [ -f "$base/$capture_script" ]; then print_field captureScript ok; else print_field captureScript missing; fi
 if [ -f "$base/$collector_script" ]; then print_field collectorScript ok; else print_field collectorScript missing; fi
-if tmux has-session -t "$stream_session" 2>/dev/null; then print_field streamSession running; else print_field streamSession stopped; fi
+if tmux has-session -t "$stream_session" 2>/dev/null; then
+  print_field streamSession running
+  stream_log=$(tmux capture-pane -p -t "$stream_session" -S -120 2>/dev/null)
+else
+  print_field streamSession stopped
+  stream_log=""
+fi
 if tmux has-session -t "$collector_session" 2>/dev/null; then print_field collectorSession running; else print_field collectorSession stopped; fi
 if command -v ss >/dev/null 2>&1 && ss -lun | grep -q ':8554'; then print_field udp8554 listening; else print_field udp8554 unknown; fi
+if printf '%s' "$stream_log" | grep -qi 'Successfully connected to GoPro'; then
+  print_field goproConnection connected
+elif printf '%s' "$stream_log" | grep -Eqi 'Failed to connect|Error.*connect|No devices|not found'; then
+  print_field goproConnection failed
+elif [ -n "$stream_log" ]; then
+  print_field goproConnection retrying
+else
+  print_field goproConnection unknown
+fi
+if printf '%s' "$stream_log" | grep -Eqi 'Streaming URL|Stream URL'; then
+  print_field streamHealth streaming
+elif printf '%s' "$stream_log" | grep -Eqi 'Failed to start stream|Error starting stream|Failed to start stream. Will retry'; then
+  print_field streamHealth retrying
+elif tmux has-session -t "$stream_session" 2>/dev/null; then
+  print_field streamHealth running-no-stream-yet
+else
+  print_field streamHealth stopped
+fi
 `.trim();
 
   const result = await runSshRemoteCommand(sshAddress, `sh -lc ${shellQuote(script)}`, {
@@ -1300,14 +1370,25 @@ ipcMain.handle('plsk:camera-action', async (_event, sshAddress, action, config) 
     return { ok: false, message: 'Invalid camera action.', detail: '' };
   }
 
-  const streamCommand = `cd ${shellQuote(validation.basePath)} && python3 ${shellQuote(validation.streamScript)}`;
+  const pythonCommand = (scriptName) =>
+    validation.useSudo ? `sudo -n python3 ${shellQuote(scriptName)}` : `python3 ${shellQuote(scriptName)}`;
+  const pythonCommandWithEnv = (scriptName, env = {}) => {
+    const envArgs = Object.entries(env)
+      .map(([key, value]) => `${key}=${shellQuote(String(value))}`)
+      .join(' ');
+    return validation.useSudo
+      ? `sudo -n env ${envArgs} python3 ${shellQuote(scriptName)}`
+      : `${envArgs} python3 ${shellQuote(scriptName)}`;
+  };
+  const streamCommand = `cd ${shellQuote(validation.basePath)} && ${pythonCommand(validation.streamScript)}`;
   const collectorCommand = [
     `cd ${shellQuote(validation.basePath)}`,
-    `STREAM_URL=${shellQuote(validation.streamUrl)}`,
-    `DURATION=${shellQuote(String(validation.durationSeconds))}`,
-    `SAMPLES=${shellQuote(String(validation.samples))}`,
-    `PAUSE_DURATION=${shellQuote(String(validation.pauseSeconds))}`,
-    `python3 ${shellQuote(validation.collectorScript)}`,
+    pythonCommandWithEnv(validation.collectorScript, {
+      STREAM_URL: validation.streamUrl,
+      DURATION: validation.durationSeconds,
+      SAMPLES: validation.samples,
+      PAUSE_DURATION: validation.pauseSeconds,
+    }),
   ].join(' && ');
 
   const scripts = {
@@ -1325,13 +1406,13 @@ base=${shellQuote(validation.basePath)}
 session=${shellQuote(validation.streamSession)}
 stop_script=${shellQuote(validation.stopScript)}
 if tmux has-session -t "$session" 2>/dev/null; then tmux kill-session -t "$session"; fi
-if [ -f "$base/$stop_script" ]; then cd "$base" && python3 "$stop_script"; else printf 'Stop script not found, killed tmux session only.'; fi
+if [ -f "$base/$stop_script" ]; then cd "$base" && ${pythonCommand(validation.stopScript)}; else printf 'Stop script not found, killed tmux session only.'; fi
 `,
     'capture-frame': `
 base=${shellQuote(validation.basePath)}
 capture_script=${shellQuote(validation.captureScript)}
 if [ ! -f "$base/$capture_script" ]; then printf 'Capture script not found.' >&2; exit 1; fi
-cd "$base" && STREAM_URL=${shellQuote(validation.streamUrl)} python3 "$capture_script"
+cd "$base" && ${pythonCommandWithEnv(validation.captureScript, { STREAM_URL: validation.streamUrl })}
 `,
     'start-collector': `
 session=${shellQuote(validation.collectorSession)}

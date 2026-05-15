@@ -431,6 +431,17 @@ select:focus {
   grid-column: 1 / -1;
 }
 
+.checkbox-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.checkbox-row input {
+  min-height: auto;
+  width: auto;
+}
+
 .camera-number-grid {
   display: grid;
   gap: 12px;
@@ -440,13 +451,130 @@ select:focus {
 
 .camera-log {
   background: #111827;
-  border-radius: 8px;
+  border-radius: 0 0 8px 8px;
   color: #e5edf5;
-  margin-top: 12px;
-  max-height: 280px;
+  max-height: 360px;
   overflow: auto;
   padding: 14px;
 }
+
+.camera-log-wrap {
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  margin-top: 16px;
+  overflow: hidden;
+}
+
+.camera-log-header {
+  align-items: center;
+  background: #1e293b;
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 14px;
+}
+
+.camera-log-header span {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.status-two-col {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.status-group-label {
+  color: #415466;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sudo-callout {
+  align-items: center;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.sudo-callout-text strong {
+  color: #92400e;
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.sudo-callout-text p {
+  color: #78350f;
+  font-size: 0.84rem;
+  margin: 0;
+}
+
+.sudo-callout button {
+  background: #d97706;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.sudo-callout button:hover:not(:disabled) {
+  background: #b45309;
+}
+
+.config-details {
+  cursor: pointer;
+}
+
+.config-details summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  list-style: none;
+  padding: 2px 0;
+  user-select: none;
+}
+
+.config-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.config-details summary::before {
+  color: #5b7083;
+  content: '▶';
+  font-size: 0.7rem;
+  transition: transform 0.15s;
+}
+
+.config-details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.config-details summary span {
+  color: #17212b;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.config-details summary small {
+  color: #5b7083;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.capture-row {
+  margin-top: 4px;
+}
+
 
 .file-browser {
   border: 1px solid #e3e9ef;
@@ -687,8 +815,14 @@ select:focus {
   }
 
   .camera-config-grid,
-  .camera-number-grid {
+  .camera-number-grid,
+  .status-two-col {
     grid-template-columns: 1fr;
+  }
+
+  .sudo-callout {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .camera-config-grid label:first-child,

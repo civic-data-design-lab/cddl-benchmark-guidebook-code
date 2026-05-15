@@ -12,14 +12,11 @@ import time
 from datetime import datetime
 import os
 import logging
-from dotenv import load_dotenv
 
 try:
     from google.cloud import storage
 except ImportError:
     storage = None
-
-load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
