@@ -1500,6 +1500,8 @@ ipcMain.handle('plsk:open-vscode', async (_event, sshAddress, remotePath) => {
     detached: true,
     stdio: 'ignore',
     windowsHide: false,
+    // On Windows, 'code' is code.cmd — spawn can't resolve .cmd files without shell:true
+    shell: process.platform === 'win32',
   });
   child.unref();
 
