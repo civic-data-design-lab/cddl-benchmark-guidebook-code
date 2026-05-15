@@ -22,7 +22,7 @@ const fallbackApi = {
   getCameraStatus: unavailable,
   runCameraAction: unavailable,
   fetchCapture: unavailable,
-  fetchLivePreview: unavailable,
+  patchGoproToJetson: unavailable,
   grantPasswordlessSudo: unavailable,
   openTerminal: unavailable,
   openVSCode: unavailable,

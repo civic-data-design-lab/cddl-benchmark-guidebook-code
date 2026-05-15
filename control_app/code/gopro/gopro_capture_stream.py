@@ -36,7 +36,7 @@ def capture_frame_after_delay(
     if frame is None:
         print(
             'CAPTURE_ERROR:Could not read a frame. Start the GoPro stream and stream tap '
-            '(gopro_stream_tap.py), or stop Live Preview and try again.',
+            '(gopro_stream_tap.py), or stop other UDP consumers and try again.',
             flush=True,
         )
         sys.exit(1)

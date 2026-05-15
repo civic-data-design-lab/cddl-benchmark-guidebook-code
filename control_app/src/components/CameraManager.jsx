@@ -1,4 +1,4 @@
-const dependencyRows = [
+﻿const dependencyRows = [
   ['basePath', 'Code Folder'],
   ['python', 'Python'],
   ['tmux', 'tmux'],
@@ -64,24 +64,16 @@ export default function CameraManager({
   cameraLog,
   captureImage,
   capturePreviewError,
-  livePreviewActive,
-  livePreviewStreamUrl,
-  livePreviewStreamKey,
-  livePreviewError,
   busyAction,
   onCameraConfigChange,
   onCheckCamera,
   onCameraAction,
   onGrantPasswordlessSudo,
   onClearCapture,
-  onToggleLivePreview,
-  onLivePreviewStreamError,
+  onPatchGoproToJetson,
 }) {
   const busy = Boolean(busyAction);
   const needsSudo = cameraStatus?.passwordlessSudo && cameraStatus.passwordlessSudo !== 'ok';
-  const livePreviewSrc = livePreviewStreamUrl
-    ? `${livePreviewStreamUrl}${livePreviewStreamUrl.includes('?') ? '&' : '?'}v=${livePreviewStreamKey}`
-    : '';
 
   function updateConfig(key, value) {
     onCameraConfigChange({ ...cameraConfig, [key]: value });
@@ -89,7 +81,7 @@ export default function CameraManager({
 
   return (
     <section className="panel camera-manager">
-      {/* ── Header ── */}
+      {/* â”€â”€ Header â”€â”€ */}
       <div className="section-heading">
         <div>
           <h2>Camera Manager</h2>
@@ -99,12 +91,12 @@ export default function CameraManager({
         </button>
       </div>
 
-      {/* ── Sudo callout ── */}
+      {/* â”€â”€ Sudo callout â”€â”€ */}
       {needsSudo && (
         <div className="sudo-callout">
           <div className="sudo-callout-text">
-            <strong>⚠ Passwordless sudo required</strong>
-            <p>The GoPro Bluetooth script needs passwordless sudo to run on the Jetson. Click Grant once — it persists across reboots.</p>
+            <strong>âš  Passwordless sudo required</strong>
+            <p>The GoPro Bluetooth script needs passwordless sudo to run on the Jetson. Click Grant once â€” it persists across reboots.</p>
           </div>
           <button type="button" onClick={onGrantPasswordlessSudo} disabled={busy}>
             {busyAction === 'grant-sudo' ? 'Granting...' : 'Grant Passwordless Sudo'}
@@ -112,7 +104,7 @@ export default function CameraManager({
         </div>
       )}
 
-      {/* ── GoPro Scripts (collapsible) ── */}
+      {/* â”€â”€ GoPro Scripts (collapsible) â”€â”€ */}
       <details className="manager-section config-details">
         <summary>
           <span>GoPro Scripts</span>
@@ -184,10 +176,18 @@ export default function CameraManager({
             />
             <span>Run GoPro scripts with sudo</span>
           </label>
+          <button
+            type="button"
+            className="secondary patch-jetson-button"
+            onClick={onPatchGoproToJetson}
+            disabled={busy}
+          >
+            {busyAction === 'patch-gopro-jetson' ? 'Patching...' : 'Patch Code to Jetson'}
+          </button>
         </div>
       </details>
 
-      {/* ── Streaming + Interval Recording ── */}
+      {/* â”€â”€ Streaming + Interval Recording â”€â”€ */}
       <div className="manager-grid">
         <section className="manager-section">
           <div className="manager-section-header">
@@ -244,73 +244,6 @@ export default function CameraManager({
               )}
             </div>
 
-            <div className="live-preview-row">
-              <div className="live-preview-settings">
-              <label className="live-preview-fps">
-                <span>Preview video FPS</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="15"
-                  value={cameraConfig.livePreviewFps ?? 5}
-                  onChange={(event) => updateConfig('livePreviewFps', Number(event.target.value))}
-                  disabled={livePreviewActive}
-                />
-              </label>
-              <label className="live-preview-fps">
-                <span>Preview stream port</span>
-                <input
-                  type="number"
-                  min="1024"
-                  max="65535"
-                  value={cameraConfig.previewStreamPort ?? 8089}
-                  onChange={(event) => updateConfig('previewStreamPort', Number(event.target.value))}
-                  disabled={livePreviewActive}
-                />
-              </label>
-              </div>
-
-              <button
-                type="button"
-                className={livePreviewActive ? 'secondary' : ''}
-                onClick={onToggleLivePreview}
-                disabled={busy && !livePreviewActive}
-                style={{ width: '100%' }}
-              >
-                {livePreviewActive ? '■ Stop Live Preview' : '▶ Live Preview'}
-              </button>
-
-              {livePreviewActive && (
-                <div className="live-preview-panel">
-                  <div className="live-preview-header">
-                    <span>Live video preview</span>
-                    <span className="live-preview-badge">MJPEG · {cameraConfig.livePreviewFps ?? 5} fps</span>
-                  </div>
-                  {livePreviewSrc ? (
-                    <img
-                      key={livePreviewStreamKey}
-                      src={livePreviewSrc}
-                      alt="Live GoPro MJPEG stream"
-                      className="live-preview-image"
-                      onLoad={() => onLivePreviewStreamError('')}
-                      onError={() =>
-                        onLivePreviewStreamError(
-                          `Could not load MJPEG stream at ${livePreviewStreamUrl}. Start Stream, wait a few seconds, and ensure port ${cameraConfig.previewStreamPort ?? 8089} is reachable on Tailscale.`,
-                        )
-                      }
-                    />
-                  ) : (
-                    <div className="live-preview-placeholder">Set Jetson SSH address to start preview.</div>
-                  )}
-                  {livePreviewError && <p className="live-preview-error">{livePreviewError}</p>}
-                  {!livePreviewError && livePreviewStreamUrl && (
-                    <p className="live-preview-hint">
-                      HTTP stream from Jetson (shared frames only). Stop Stream before running CV inference on UDP :8554.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
         </section>
 
@@ -371,7 +304,7 @@ export default function CameraManager({
         </section>
       </div>
 
-      {/* ── Status ── */}
+      {/* â”€â”€ Status â”€â”€ */}
       <div className="manager-section">
         <div className="manager-section-header">
           <div>

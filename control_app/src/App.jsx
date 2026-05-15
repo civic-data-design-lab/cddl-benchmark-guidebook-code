@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import { buildPreviewStreamUrl } from './lib/previewStream.js';
+import { useEffect, useState } from 'react';
 import ActionButtons from './components/ActionButtons.jsx';
 import CameraManager from './components/CameraManager.jsx';
 import DeviceForm from './components/DeviceForm.jsx';
@@ -26,20 +25,15 @@ const DEFAULT_CAMERA_CONFIG = {
   streamScript: 'gopro_start_stream_lin_loop.py',
   stopScript: 'gopro_stop_stream.py',
   captureScript: 'gopro_capture_stream.py',
-  previewScript: 'gopro_preview_frame.py',
   tapScript: 'gopro_stream_tap.py',
-  mjpegScript: 'gopro_mjpeg_server.py',
   collectorScript: 'gopro_download_stream_interval.py',
   streamSession: 'gopro_stream',
   tapSession: 'gopro_tap',
-  mjpegSession: 'gopro_mjpeg',
   collectorSession: 'gopro_collector',
   streamUrl: 'udp://@0.0.0.0:8554',
   durationSeconds: 60,
   samples: 24,
   pauseSeconds: 3540,
-  livePreviewFps: 5,
-  previewStreamPort: 8089,
   useSudo: true,
 };
 
@@ -77,7 +71,7 @@ function parseCaptureError(detail) {
     return errorMatch[1].trim();
   }
   if (/bind failed: Address already in use/i.test(cleanDetail)) {
-    return 'UDP port 8554 is already in use. Stop Live Preview, then Start Stream again (starts the stream tap).';
+    return 'UDP port 8554 is already in use. Stop Stream, then Start Stream again (starts the stream tap).';
   }
   if (/Failed to open the video stream/i.test(cleanDetail)) {
     return 'Could not open the video stream. Start the GoPro stream first, then capture again.';
@@ -135,17 +129,6 @@ export default function App() {
   const [busyAction, setBusyAction] = useState('');
   const [captureImage, setCaptureImage] = useState(null); // { dataUrl, path }
   const [capturePreviewError, setCapturePreviewError] = useState('');
-  const [livePreviewActive, setLivePreviewActive] = useState(false);
-  const [livePreviewError, setLivePreviewError] = useState('');
-  const [livePreviewStreamKey, setLivePreviewStreamKey] = useState(0);
-
-  const livePreviewStreamUrl = useMemo(() => {
-    if (!livePreviewActive || !device.sshAddress) {
-      return '';
-    }
-    return buildPreviewStreamUrl(device.sshAddress, cameraConfig.previewStreamPort);
-  }, [cameraConfig.previewStreamPort, device.sshAddress, livePreviewActive]);
-
   useEffect(() => {
     let mounted = true;
 
@@ -613,38 +596,35 @@ export default function App() {
       setStatus({ type: 'error', message: error.message });
     } finally {
       setBusyAction('');
-      if (shouldResumeLivePreview) {
-        setLivePreviewActive(true);
-      }
     }
   }
 
-  useEffect(() => {
-    if (activePage !== 'camera') {
-      setLivePreviewActive(false);
+  async function patchGoproToJetson() {
+    if (!device.sshAddress) {
+      setStatus({ type: 'error', message: 'Set the Jetson SSH address on the Setup page first.' });
+      return;
     }
-  }, [activePage]);
 
-  function toggleLivePreview() {
-    setLivePreviewActive((active) => {
-      if (active) {
-        setLivePreviewError('');
-        return false;
-      }
-      setLivePreviewError('');
-      setLivePreviewStreamKey((value) => value + 1);
-      return true;
-    });
+    setBusyAction('patch-gopro-jetson');
+    setStatus(null);
+
+    try {
+      const result = await plskApi.patchGoproToJetson(device.sshAddress, cameraConfig);
+      setStatus({
+        type: result.ok ? 'success' : 'error',
+        message: result.message,
+        detail: result.detail,
+      });
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message });
+    } finally {
+      setBusyAction('');
+    }
   }
 
   async function runCameraAction(action) {
     setBusyAction(`camera-${action}`);
     setStatus(null);
-
-    const shouldResumeLivePreview = action === 'capture-frame' && livePreviewActive;
-    if (shouldResumeLivePreview) {
-      setLivePreviewActive(false);
-    }
 
     if (action === 'capture-frame') {
       setCaptureImage(null);
@@ -725,9 +705,6 @@ export default function App() {
       setStatus({ type: 'error', message: error.message });
     } finally {
       setBusyAction('');
-      if (shouldResumeLivePreview) {
-        setLivePreviewActive(true);
-      }
     }
   }
 
@@ -783,10 +760,6 @@ export default function App() {
           cameraLog={cameraLog}
           captureImage={captureImage}
           capturePreviewError={capturePreviewError}
-          livePreviewActive={livePreviewActive}
-          livePreviewStreamUrl={livePreviewStreamUrl}
-          livePreviewStreamKey={livePreviewStreamKey}
-          livePreviewError={livePreviewError}
           busyAction={busyAction}
           onCameraConfigChange={setCameraConfig}
           onCheckCamera={checkCameraStatus}
@@ -796,8 +769,7 @@ export default function App() {
             setCaptureImage(null);
             setCapturePreviewError('');
           }}
-          onToggleLivePreview={toggleLivePreview}
-          onLivePreviewStreamError={setLivePreviewError}
+          onPatchGoproToJetson={patchGoproToJetson}
         />
       );
     }

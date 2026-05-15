@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('plsk', {
   runCameraAction: (sshAddress, action, config) => ipcRenderer.invoke('plsk:camera-action', sshAddress, action, config),
   fetchCapture: (sshAddress, remotePath, useSudo = false) =>
     ipcRenderer.invoke('plsk:fetch-capture', sshAddress, remotePath, useSudo),
-  fetchLivePreview: (sshAddress, config) => ipcRenderer.invoke('plsk:fetch-live-preview', sshAddress, config),
+  patchGoproToJetson: (sshAddress, config) => ipcRenderer.invoke('plsk:patch-gopro-to-jetson', sshAddress, config),
   grantPasswordlessSudo: (sshAddress, username) => ipcRenderer.invoke('plsk:grant-passwordless-sudo', sshAddress, username),
   openTerminal: (sshAddress) => ipcRenderer.invoke('plsk:open-terminal', sshAddress),
   openVSCode: (sshAddress, remotePath) => ipcRenderer.invoke('plsk:open-vscode', sshAddress, remotePath),

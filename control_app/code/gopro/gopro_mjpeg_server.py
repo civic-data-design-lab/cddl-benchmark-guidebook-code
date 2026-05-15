@@ -46,11 +46,10 @@ class MjpegStreamHandler(BaseHTTPRequestHandler):
     latest_path = ''
     frame_interval = 0.2
 
-    def do_GET(self):
-        if self.path not in ('/stream', '/'):
-            self.send_error(404)
-            return
+    def _is_stream_path(self):
+        return self.path.split('?', 1)[0] in ('/stream', '/')
 
+    def _send_stream_headers(self):
         self.send_response(200)
         self.send_header('Age', '0')
         self.send_header('Cache-Control', 'no-cache, private')
@@ -58,6 +57,19 @@ class MjpegStreamHandler(BaseHTTPRequestHandler):
         self.send_header('Connection', 'close')
         self.send_header('Content-Type', f'multipart/x-mixed-replace; boundary={BOUNDARY}')
         self.end_headers()
+
+    def do_HEAD(self):
+        if not self._is_stream_path():
+            self.send_error(404)
+            return
+        self._send_stream_headers()
+
+    def do_GET(self):
+        if not self._is_stream_path():
+            self.send_error(404)
+            return
+
+        self._send_stream_headers()
 
         try:
             while True:
@@ -87,7 +99,12 @@ def main():
     MjpegStreamHandler.latest_path = latest_path
     MjpegStreamHandler.frame_interval = frame_interval
 
-    server = ThreadingHTTPServer(('0.0.0.0', port), MjpegStreamHandler)
+    try:
+        server = ThreadingHTTPServer(('0.0.0.0', port), MjpegStreamHandler)
+    except OSError as error:
+        print(f'MJPEG_ERROR:{error}', flush=True)
+        sys.exit(1)
+
     print(f'MJPEG_READY:http://0.0.0.0:{port}/stream', flush=True)
     print(f'MJPEG_SOURCE:{latest_path}', flush=True)
     print(f'MJPEG_FPS:{fps}', flush=True)

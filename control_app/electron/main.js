@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -18,20 +18,15 @@ const DEFAULT_CAMERA_CONFIG = {
   streamScript: 'gopro_start_stream_lin_loop.py',
   stopScript: 'gopro_stop_stream.py',
   captureScript: 'gopro_capture_stream.py',
-  previewScript: 'gopro_preview_frame.py',
   tapScript: 'gopro_stream_tap.py',
-  mjpegScript: 'gopro_mjpeg_server.py',
   collectorScript: 'gopro_download_stream_interval.py',
   streamSession: 'gopro_stream',
   tapSession: 'gopro_tap',
-  mjpegSession: 'gopro_mjpeg',
-  previewStreamPort: 8089,
   collectorSession: 'gopro_collector',
   streamUrl: 'udp://@0.0.0.0:8554',
   durationSeconds: 60,
   samples: 24,
   pauseSeconds: 3540,
-  livePreviewFps: 5,
   useSudo: true,
 };
 
@@ -153,18 +148,6 @@ async function resolveCommand(command) {
 function failureMessageForSsh(stderr) {
   const detail = String(stderr || '').trim();
 
-  if (/preview script not found/i.test(detail)) {
-    return [
-      'Live preview script is missing on the Jetson.',
-      '',
-      'Copy gopro_preview_frame.py into your GoPro Code Folder on the Jetson.',
-      '',
-      detail ? `Technical detail: ${detail}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
-  }
-
   if (/capture script not found/i.test(detail)) {
     return `Capture script not found on the Jetson.\n\nTechnical detail: ${detail}`;
   }
@@ -174,7 +157,6 @@ function failureMessageForSsh(stderr) {
       'Could not capture while the UDP stream is in use.',
       '',
       'Use Start Stream (starts the stream tap), then capture again.',
-      'Stop Live Preview before capture if problems continue.',
       '',
       detail ? `Technical detail: ${detail}` : '',
     ]
@@ -501,9 +483,7 @@ function validateCameraConfig(config = {}) {
     ['streamScript', DEFAULT_CAMERA_CONFIG.streamScript],
     ['stopScript', DEFAULT_CAMERA_CONFIG.stopScript],
     ['captureScript', DEFAULT_CAMERA_CONFIG.captureScript],
-    ['previewScript', DEFAULT_CAMERA_CONFIG.previewScript],
     ['tapScript', DEFAULT_CAMERA_CONFIG.tapScript],
-    ['mjpegScript', DEFAULT_CAMERA_CONFIG.mjpegScript],
     ['collectorScript', DEFAULT_CAMERA_CONFIG.collectorScript],
   ];
   const scripts = {};
@@ -529,16 +509,6 @@ function validateCameraConfig(config = {}) {
   const tapSession = validateSessionName(config.tapSession, DEFAULT_CAMERA_CONFIG.tapSession);
   if (!tapSession.valid) {
     return tapSession;
-  }
-
-  const mjpegSession = validateSessionName(config.mjpegSession, DEFAULT_CAMERA_CONFIG.mjpegSession);
-  if (!mjpegSession.valid) {
-    return mjpegSession;
-  }
-
-  const previewStreamPort = Number(config.previewStreamPort ?? DEFAULT_CAMERA_CONFIG.previewStreamPort);
-  if (!Number.isInteger(previewStreamPort) || previewStreamPort < 1024 || previewStreamPort > 65535) {
-    return { valid: false, message: 'Preview stream port must be between 1024 and 65535.' };
   }
 
   const streamUrl = String(config.streamUrl || DEFAULT_CAMERA_CONFIG.streamUrl).trim();
@@ -568,11 +538,6 @@ function validateCameraConfig(config = {}) {
     return { valid: false, message: captureOutputPath.message };
   }
 
-  const livePreviewFps = Number(config.livePreviewFps ?? DEFAULT_CAMERA_CONFIG.livePreviewFps);
-  if (!Number.isFinite(livePreviewFps) || livePreviewFps < 1 || livePreviewFps > 15) {
-    return { valid: false, message: 'Preview FPS must be between 1 and 15.' };
-  }
-
   return {
     valid: true,
     basePath: basePath.value,
@@ -580,14 +545,11 @@ function validateCameraConfig(config = {}) {
     ...scripts,
     streamSession: streamSession.value,
     tapSession: tapSession.value,
-    mjpegSession: mjpegSession.value,
     collectorSession: collectorSession.value,
     streamUrl,
     durationSeconds,
     samples,
     pauseSeconds,
-    livePreviewFps: Math.round(livePreviewFps),
-    previewStreamPort,
     useSudo: config.useSudo !== false,
   };
 }
@@ -1464,7 +1426,6 @@ ipcMain.handle('plsk:camera-action', async (_event, sshAddress, action, config) 
     'start-stream',
     'stop-stream',
     'capture-frame',
-    'preview-frame',
     'start-collector',
     'stop-collector',
     'read-logs',
@@ -1487,14 +1448,8 @@ ipcMain.handle('plsk:camera-action', async (_event, sshAddress, action, config) 
   const tapCommand = `cd ${shellQuote(validation.basePath)} && ${pythonCommandWithEnv(validation.tapScript, {
     STREAM_URL: validation.streamUrl,
     CAPTURE_OUTPUT_DIR: validation.captureOutputPath,
-    STREAM_TAP_FPS: validation.livePreviewFps,
+    STREAM_TAP_FPS: 5,
     PREVIEW_JPEG_QUALITY: 55,
-  })}`;
-  const mjpegCommand = `cd ${shellQuote(validation.basePath)} && ${pythonCommandWithEnv(validation.mjpegScript, {
-    CAPTURE_OUTPUT_DIR: validation.captureOutputPath,
-    STREAM_TAP_FPS: validation.livePreviewFps,
-    PREVIEW_STREAM_FPS: validation.livePreviewFps,
-    PREVIEW_STREAM_PORT: validation.previewStreamPort,
   })}`;
   const sharedFrameEnv = {
     STREAM_URL: validation.streamUrl,
@@ -1536,25 +1491,12 @@ if [ -f "$base/$tap_script" ]; then
 else
   printf ' Stream tap script missing; capture while streaming may fail.'
 fi
-mjpeg_session=${shellQuote(validation.mjpegSession)}
-mjpeg_command=${shellQuote(mjpegCommand)}
-mjpeg_script=${shellQuote(validation.mjpegScript)}
-if [ -f "$base/$mjpeg_script" ]; then
-  if tmux has-session -t "$mjpeg_session" 2>/dev/null; then tmux kill-session -t "$mjpeg_session"; fi
-  sleep 2
-  tmux new-session -d -s "$mjpeg_session" "$mjpeg_command"
-  printf ' MJPEG preview started on port ${validation.previewStreamPort}.'
-else
-  printf ' MJPEG preview script missing.'
-fi
 `,
     'stop-stream': `
 base=${shellQuote(validation.basePath)}
 session=${shellQuote(validation.streamSession)}
 tap_session=${shellQuote(validation.tapSession)}
-mjpeg_session=${shellQuote(validation.mjpegSession)}
 stop_script=${shellQuote(validation.stopScript)}
-if tmux has-session -t "$mjpeg_session" 2>/dev/null; then tmux kill-session -t "$mjpeg_session"; fi
 if tmux has-session -t "$tap_session" 2>/dev/null; then tmux kill-session -t "$tap_session"; fi
 if tmux has-session -t "$session" 2>/dev/null; then tmux kill-session -t "$session"; fi
 if [ -f "$base/$stop_script" ]; then cd "$base" && ${pythonCommand(validation.stopScript)}; else printf 'Stop script not found, killed tmux session only.'; fi
@@ -1566,14 +1508,6 @@ helper_script=${shellQuote('gopro_stream_frame.py')}
 if [ ! -f "$base/$capture_script" ]; then printf 'Capture script not found.' >&2; exit 1; fi
 if [ ! -f "$base/$helper_script" ]; then printf 'Helper script gopro_stream_frame.py not found.' >&2; exit 1; fi
 cd "$base" && ${pythonCommandWithEnv(validation.captureScript, sharedFrameEnv)}
-`,
-    'preview-frame': `
-base=${shellQuote(validation.basePath)}
-preview_script=${shellQuote(validation.previewScript)}
-helper_script=${shellQuote('gopro_stream_frame.py')}
-if [ ! -f "$base/$preview_script" ]; then printf 'Preview script not found at %s/%s' "$base" "$preview_script" >&2; exit 1; fi
-if [ ! -f "$base/$helper_script" ]; then printf 'Helper script gopro_stream_frame.py not found.' >&2; exit 1; fi
-cd "$base" && ${pythonCommandWithEnv(validation.previewScript, sharedFrameEnv)}
 `,
     'start-collector': `
 session=${shellQuote(validation.collectorSession)}
@@ -1606,7 +1540,7 @@ fi
   };
 
   const result = await runSshRemoteCommand(sshAddress, `sh -lc ${shellQuote(scripts[action].trim())}`, {
-    connectTimeout: action === 'capture-frame' || action === 'preview-frame' ? 20 : 12,
+    connectTimeout: action === 'capture-frame' ? 20 : 12,
   });
 
   if (!result.ok) {
@@ -1617,7 +1551,6 @@ fi
     'start-stream': 'GoPro stream start requested.',
     'stop-stream': 'GoPro stream stop requested.',
     'capture-frame': 'Frame capture requested.',
-    'preview-frame': 'Live preview frame requested.',
     'start-collector': 'Video collector start requested.',
     'stop-collector': 'Video collector stop requested.',
     'read-logs': 'Camera logs loaded.',
@@ -1678,67 +1611,74 @@ async function fetchRemoteImageBase64(sshAddress, remotePath, useSudo = false) {
 ipcMain.handle('plsk:fetch-capture', async (_event, sshAddress, remotePath, useSudo = false) =>
   fetchRemoteImageBase64(sshAddress, remotePath, useSudo));
 
-function parsePreviewDataUrl(detail) {
-  const cleanDetail = String(detail || '').replace(/\x1b\[[0-9;]*[mGKHF]/g, '');
-  const encodedMatch = cleanDetail.match(/PREVIEW_B64:([A-Za-z0-9+/=]+)/);
-  if (encodedMatch) {
-    return { ok: true, dataUrl: `data:image/jpeg;base64,${encodedMatch[1]}` };
-  }
+const GOPRO_LOCAL_CODE_DIR = path.join(__dirname, '../code/gopro');
 
-  const errorMatch = cleanDetail.match(/PREVIEW_ERROR:([^\n\r]+)/);
-  if (errorMatch) {
-    return { ok: false, message: errorMatch[1].trim() };
-  }
-
-  return { ok: false, message: 'Live preview output was not recognized.', detail: cleanDetail };
-}
-
-ipcMain.handle('plsk:fetch-live-preview', async (_event, sshAddress, config) => {
+ipcMain.handle('plsk:patch-gopro-to-jetson', async (_event, sshAddress, config) => {
   const validation = validateCameraConfig(config);
   if (!validation.valid) {
     return { ok: false, message: validation.message, detail: '' };
   }
 
-  const latestFramePath = `${validation.captureOutputPath}/.stream_latest.jpg`;
-  const sharedFrame = await fetchRemoteImageBase64(sshAddress, latestFramePath, validation.useSudo);
-  if (sharedFrame.ok && sharedFrame.dataUrl) {
-    return { ok: true, dataUrl: sharedFrame.dataUrl };
+  const sshValidation = validateSshAddress(sshAddress);
+  if (!sshValidation.valid) {
+    return { ok: false, message: sshValidation.message, detail: '' };
   }
 
-  const previewCommand = validation.useSudo
-    ? `sudo -n env STREAM_URL=${shellQuote(validation.streamUrl)} CAPTURE_OUTPUT_DIR=${shellQuote(validation.captureOutputPath)} PREFER_SHARED_FRAME=1 python3 ${shellQuote(validation.previewScript)}`
-    : `STREAM_URL=${shellQuote(validation.streamUrl)} CAPTURE_OUTPUT_DIR=${shellQuote(validation.captureOutputPath)} PREFER_SHARED_FRAME=1 python3 ${shellQuote(validation.previewScript)}`;
-
-  const script = `
-base=${shellQuote(validation.basePath)}
-preview_script=${shellQuote(validation.previewScript)}
-helper_script=${shellQuote('gopro_stream_frame.py')}
-if [ ! -f "$base/$preview_script" ]; then printf 'Preview script not found.' >&2; exit 1; fi
-if [ ! -f "$base/$helper_script" ]; then printf 'Helper script gopro_stream_frame.py not found.' >&2; exit 1; fi
-cd "$base" && ${previewCommand}
-`.trim();
-
-  const result = await runSshRemoteCommand(sshAddress, `sh -lc ${shellQuote(script)}`, {
-    connectTimeout: 12,
-  });
-
-  if (!result.ok) {
-    const sharedHint = sharedFrame.message
-      ? `Shared frame (${latestFramePath}): ${sharedFrame.message}`
-      : '';
+  if (!existsSync(GOPRO_LOCAL_CODE_DIR)) {
     return {
       ok: false,
-      message: 'Could not fetch live preview frame from Jetson. Start Stream and wait a few seconds.',
-      detail: [sharedHint, result.stderr || result.stdout, result.message].filter(Boolean).join('\n'),
+      message: 'Local GoPro code folder was not found in this app install.',
+      detail: GOPRO_LOCAL_CODE_DIR,
     };
   }
 
-  const parsed = parsePreviewDataUrl([result.stdout, result.stderr].filter(Boolean).join('\n'));
-  if (!parsed.ok) {
-    return { ok: false, message: parsed.message, detail: parsed.detail || '' };
+  const scriptNames = readdirSync(GOPRO_LOCAL_CODE_DIR).filter((name) => name.endsWith('.py'));
+  if (scriptNames.length === 0) {
+    return {
+      ok: false,
+      message: 'No Python scripts found to patch.',
+      detail: GOPRO_LOCAL_CODE_DIR,
+    };
   }
 
-  return { ok: true, dataUrl: parsed.dataUrl };
+  const installed = [];
+  const failures = [];
+
+  for (const scriptName of scriptNames) {
+    const localScriptPath = path.join(GOPRO_LOCAL_CODE_DIR, scriptName);
+    const remoteScriptPath = `${validation.basePath}/${scriptName}`;
+    const result = await runCommand('scp', [
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=12',
+      localScriptPath,
+      `${sshValidation.value}:${remoteScriptPath}`,
+    ]);
+
+    if (result.ok) {
+      installed.push(remoteScriptPath);
+    } else {
+      failures.push(`${scriptName}: ${result.stderr || result.stdout || 'copy failed'}`);
+    }
+  }
+
+  if (installed.length === 0) {
+    return {
+      ok: false,
+      message: 'Could not patch GoPro code to the Jetson.',
+      detail: failures.join('\n'),
+    };
+  }
+
+  return {
+    ok: failures.length === 0,
+    message:
+      failures.length === 0
+        ? `Patched ${installed.length} GoPro script(s) to the Jetson.`
+        : `Patched ${installed.length} script(s), but ${failures.length} failed.`,
+    detail: [...installed, ...failures].join('\n'),
+  };
 });
 
 ipcMain.handle('plsk:open-terminal', async (_event, sshAddress) => {
