@@ -21,7 +21,8 @@ except ImportError:
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-VIDEO_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../video/"))
+DEFAULT_VIDEO_PATH = "/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/sample_video"
+VIDEO_PATH = os.path.abspath(os.getenv("VIDEO_OUTPUT_DIR", DEFAULT_VIDEO_PATH))
 GCS_BUCKET = os.getenv("GCS_BUCKET", "benchmark-boston-test")
 
 def upload_to_gcs(local_file, bucket_name, blob_name):
@@ -55,6 +56,7 @@ def check_ffmpeg():
 
 def capture_stream_with_ffmpeg(stream_url, duration=120, output_directory=VIDEO_PATH):
     check_ffmpeg()
+    output_directory = os.path.abspath(os.getenv("VIDEO_OUTPUT_DIR", output_directory))
     os.makedirs(output_directory, exist_ok=True)
     current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     output_file = os.path.join(output_directory, f"video_{current_time}.mp4")
@@ -101,12 +103,7 @@ def capture_stream_with_ffmpeg(stream_url, duration=120, output_directory=VIDEO_
     blob_name = os.path.basename(output_file)
     upload_to_gcs(output_file, GCS_BUCKET, f"videos/{blob_name}")
 
-    # Delete local file after upload
-    try:
-        os.remove(output_file)
-        logging.info(f"Deleted local file: {output_file}")
-    except Exception as e:
-        logging.error(f"Failed to delete local file: {e}")
+    logging.info(f"Kept local sample video: {output_file}")
 
 def main():
     stream_url = os.getenv("STREAM_URL", "udp://@0.0.0.0:8554") # udp://127.0.0.1:8556 udp://@0.0.0.0:8554
@@ -117,6 +114,7 @@ def main():
     for i in range(samples):
         logging.info(f"Starting sample {i + 1} of {samples}")
         capture_stream_with_ffmpeg(f"{stream_url}?fifo_size=100000000&overrun_nonfatal=1", duration=duration, output_directory=VIDEO_PATH)
+        logging.info(f"Collected sample {i + 1} of {samples}")
         if i < samples - 1:
             for remaining in range(pause_duration, 0, -1):
                 print(f"\rPausing... {remaining} seconds remaining", end="")

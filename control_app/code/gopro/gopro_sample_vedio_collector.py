@@ -27,7 +27,8 @@ except ImportError:
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-VIDEO_PATH = "/home/lcau/benchmark-aus-2/code/sample"
+DEFAULT_VIDEO_PATH = "/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/sample_video"
+VIDEO_PATH = os.path.abspath(os.getenv("VIDEO_OUTPUT_DIR", DEFAULT_VIDEO_PATH))
 GCS_BUCKET = os.getenv("GCS_BUCKET", "benchmark-aus-v2")
 
 def upload_to_gcs(local_file, bucket_name, blob_name):
@@ -61,6 +62,7 @@ def check_ffmpeg():
 
 def capture_stream_with_ffmpeg(stream_url, duration=120, output_directory=VIDEO_PATH):
     check_ffmpeg()
+    output_directory = os.path.abspath(os.getenv("VIDEO_OUTPUT_DIR", output_directory))
     os.makedirs(output_directory, exist_ok=True)
     current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     output_file = os.path.join(output_directory, f"video_{current_time}.mp4")
@@ -133,6 +135,9 @@ def main():
     duration = 120  # 2 minutes
     interval = 480  # 8 minutes
     current = start_time
+    sample_index = 1
+    total_window_seconds = (end_time - start_time).total_seconds()
+    total_samples = max(0, int((total_window_seconds + interval - 1) // interval))
     while current < end_time:
         now_utc = datetime.now(pytz.utc)
         now_sydney = now_utc.astimezone(SYDNEY_TZ)
@@ -142,6 +147,8 @@ def main():
             time.sleep(sleep_seconds)
         logging.info(f"Capturing sample at {current.strftime('%Y-%m-%d %H:%M:%S')} Sydney time")
         capture_stream_with_ffmpeg(f"{stream_url}?fifo_size=100000000&overrun_nonfatal=1", duration=duration, output_directory=VIDEO_PATH)
+        logging.info(f"Collected sample {sample_index} of {total_samples}")
+        sample_index += 1
         current += timedelta(seconds=interval)
     logging.info(f"Completed capturing samples from {START_HOUR}:00 to {END_HOUR}:00 Sydney time.")
 

@@ -1,56 +1,94 @@
 ﻿const dependencyRows = [
-  ['basePath', 'Code Folder'],
-  ['python', 'Python'],
-  ['tmux', 'tmux'],
-  ['ffmpeg', 'FFmpeg'],
-  ['openGoPro', 'open_gopro'],
-  ['opencv', 'OpenCV'],
-  ['streamScript', 'Stream Script'],
-  ['captureScript', 'Capture Script'],
-  ['collectorScript', 'Collector Script'],
-  ['passwordlessSudo', 'Passwordless sudo'],
+  ["basePath", "Code Folder"],
+  ["python", "Python"],
+  ["tmux", "tmux"],
+  ["ffmpeg", "FFmpeg"],
+  ["openGoPro", "open_gopro"],
+  ["opencv", "OpenCV"],
+  ["streamScript", "Stream Script"],
+  ["captureScript", "Capture Script"],
+  ["collectorScript", "Collector Script"],
+  ["passwordlessSudo", "Passwordless sudo"],
 ];
 
 const runtimeRows = [
-  ['streamSession', 'Stream Session'],
-  ['goproConnection', 'GoPro Connection'],
-  ['streamHealth', 'Stream Health'],
-  ['collectorSession', 'Collector Session'],
-  ['udp8554', 'UDP 8554'],
+  ["streamSession", "Stream Session"],
+  ["goproConnection", "GoPro Connection"],
+  ["streamHealth", "Stream Health"],
+  ["collectorSession", "Collector Session"],
+  ["udp8554", "UDP 8554"],
 ];
 
 const STATUS_COLORS = {
-  ok: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
-  missing: { bg: '#fee2e2', color: '#b91c1c', border: '#fecaca' },
-  'needs-password': { bg: '#fef9c3', color: '#a16207', border: '#fef08a' },
-  running: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
-  stopped: { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' },
-  connected: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
-  failed: { bg: '#fee2e2', color: '#b91c1c', border: '#fecaca' },
-  retrying: { bg: '#fef9c3', color: '#a16207', border: '#fef08a' },
-  streaming: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
-  listening: { bg: '#dbeafe', color: '#1d4ed8', border: '#bfdbfe' },
-  unknown: { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' },
-  'running-no-stream-yet': { bg: '#fef9c3', color: '#a16207', border: '#fef08a' },
-  'Not checked': { bg: '#f1f5f9', color: '#94a3b8', border: '#e2e8f0' },
+  ok: { bg: "#dcfce7", color: "#15803d", border: "#bbf7d0" },
+  missing: { bg: "#fee2e2", color: "#b91c1c", border: "#fecaca" },
+  "needs-password": { bg: "#fef9c3", color: "#a16207", border: "#fef08a" },
+  running: { bg: "#dcfce7", color: "#15803d", border: "#bbf7d0" },
+  stopped: { bg: "#f1f5f9", color: "#475569", border: "#e2e8f0" },
+  connected: { bg: "#dcfce7", color: "#15803d", border: "#bbf7d0" },
+  failed: { bg: "#fee2e2", color: "#b91c1c", border: "#fecaca" },
+  retrying: { bg: "#fef9c3", color: "#a16207", border: "#fef08a" },
+  streaming: { bg: "#dcfce7", color: "#15803d", border: "#bbf7d0" },
+  listening: { bg: "#dbeafe", color: "#1d4ed8", border: "#bfdbfe" },
+  unknown: { bg: "#f1f5f9", color: "#475569", border: "#e2e8f0" },
+  "running-no-stream-yet": {
+    bg: "#fef9c3",
+    color: "#a16207",
+    border: "#fef08a",
+  },
+  "Not checked": { bg: "#f1f5f9", color: "#94a3b8", border: "#e2e8f0" },
 };
 
+function parseCollectorProgress(cameraLog, configuredSamples) {
+  const log = cameraLog || "";
+  const startedMatches = [...log.matchAll(/Starting sample\s+(\d+)\s+of\s+(\d+)/gi)];
+  const collectedMatches = [...log.matchAll(/Collected sample\s+(\d+)\s+of\s+(\d+)/gi)];
+  const savedMatches = [...log.matchAll(/Video saved as\s+([^\n\r]+)/gi)];
+  const completedMatch = log.match(/Completed capturing\s+(\d+)\s+samples/gi);
+  const latestStarted = startedMatches[startedMatches.length - 1];
+  const latestCollected = collectedMatches[collectedMatches.length - 1];
+  const total = latestStarted
+    ? Number(latestStarted[2])
+    : latestCollected
+        ? Number(latestCollected[2])
+        : Number(configuredSamples || 0);
+
+  let collected = latestCollected ? Number(latestCollected[1]) : savedMatches.length;
+  if (completedMatch?.length && total) {
+    collected = total;
+  } else if (latestStarted) {
+    collected = Math.min(collected, total || collected);
+  }
+
+  const latestSaved = savedMatches[savedMatches.length - 1]?.[1]?.trim() || "";
+  const currentSample = latestStarted ? Number(latestStarted[1]) : null;
+  const percent = total > 0 ? Math.min(100, Math.round((collected / total) * 100)) : 0;
+
+  return {
+    collected,
+    currentSample,
+    latestSaved,
+    percent,
+    total,
+  };
+}
+
 function StatusBadge({ value }) {
-  const style = STATUS_COLORS[value] || STATUS_COLORS['Not checked'];
-  const display = value || 'Not checked';
+  const style = STATUS_COLORS[value] || STATUS_COLORS["Not checked"];
+  const display = value || "Not checked";
   return (
     <span
       style={{
         background: style.bg,
         border: `1px solid ${style.border}`,
-        borderRadius: '6px',
+        borderRadius: "6px",
         color: style.color,
-        display: 'inline-block',
-        fontSize: '0.8rem',
+        display: "inline-block",
+        fontSize: "0.8rem",
         fontWeight: 700,
         lineHeight: 1,
-        padding: '4px 10px',
-        whiteSpace: 'nowrap',
+        padding: "4px 10px",
+        whiteSpace: "nowrap",
       }}
     >
       {display}
@@ -73,7 +111,12 @@ export default function CameraManager({
   onPatchGoproToJetson,
 }) {
   const busy = Boolean(busyAction);
-  const needsSudo = cameraStatus?.passwordlessSudo && cameraStatus.passwordlessSudo !== 'ok';
+  const needsSudo =
+    cameraStatus?.passwordlessSudo && cameraStatus.passwordlessSudo !== "ok";
+  const collectorProgress = parseCollectorProgress(
+    cameraLog,
+    cameraConfig.samples
+  );
 
   function updateConfig(key, value) {
     onCameraConfigChange({ ...cameraConfig, [key]: value });
@@ -87,7 +130,7 @@ export default function CameraManager({
           <h2>Camera Manager</h2>
         </div>
         <button type="button" onClick={onCheckCamera} disabled={busy}>
-          {busyAction === 'camera-status' ? 'Checking...' : 'Check Camera'}
+          {busyAction === "camera-status" ? "Checking..." : "Check Camera"}
         </button>
       </div>
 
@@ -96,10 +139,19 @@ export default function CameraManager({
         <div className="sudo-callout">
           <div className="sudo-callout-text">
             <strong>âš  Passwordless sudo required</strong>
-            <p>The GoPro Bluetooth script needs passwordless sudo to run on the Jetson. Click Grant once â€” it persists across reboots.</p>
+            <p>
+              The GoPro Bluetooth script needs passwordless sudo to run on the
+              Jetson. Click Grant once â€” it persists across reboots.
+            </p>
           </div>
-          <button type="button" onClick={onGrantPasswordlessSudo} disabled={busy}>
-            {busyAction === 'grant-sudo' ? 'Granting...' : 'Grant Passwordless Sudo'}
+          <button
+            type="button"
+            onClick={onGrantPasswordlessSudo}
+            disabled={busy}
+          >
+            {busyAction === "grant-sudo"
+              ? "Granting..."
+              : "Grant Passwordless Sudo"}
           </button>
         </div>
       )}
@@ -111,12 +163,12 @@ export default function CameraManager({
           <small>Remote paths on the Jetson</small>
         </summary>
 
-        <div className="camera-config-grid" style={{ marginTop: '14px' }}>
+        <div className="camera-config-grid" style={{ marginTop: "14px" }}>
           <label>
             <span>Code Folder</span>
             <input
               value={cameraConfig.basePath}
-              onChange={(event) => updateConfig('basePath', event.target.value)}
+              onChange={(event) => updateConfig("basePath", event.target.value)}
               autoComplete="off"
             />
           </label>
@@ -124,7 +176,9 @@ export default function CameraManager({
             <span>Stream Script</span>
             <input
               value={cameraConfig.streamScript}
-              onChange={(event) => updateConfig('streamScript', event.target.value)}
+              onChange={(event) =>
+                updateConfig("streamScript", event.target.value)
+              }
               autoComplete="off"
             />
           </label>
@@ -132,7 +186,9 @@ export default function CameraManager({
             <span>Stop Script</span>
             <input
               value={cameraConfig.stopScript}
-              onChange={(event) => updateConfig('stopScript', event.target.value)}
+              onChange={(event) =>
+                updateConfig("stopScript", event.target.value)
+              }
               autoComplete="off"
             />
           </label>
@@ -140,15 +196,29 @@ export default function CameraManager({
             <span>Capture Script</span>
             <input
               value={cameraConfig.captureScript}
-              onChange={(event) => updateConfig('captureScript', event.target.value)}
+              onChange={(event) =>
+                updateConfig("captureScript", event.target.value)
+              }
               autoComplete="off"
             />
           </label>
-          <label style={{ gridColumn: '1 / -1' }}>
+          <label style={{ gridColumn: "1 / -1" }}>
             <span>Capture Output Folder</span>
             <input
-              value={cameraConfig.captureOutputPath || ''}
-              onChange={(event) => updateConfig('captureOutputPath', event.target.value)}
+              value={cameraConfig.captureOutputPath || ""}
+              onChange={(event) =>
+                updateConfig("captureOutputPath", event.target.value)
+              }
+              autoComplete="off"
+            />
+          </label>
+          <label style={{ gridColumn: "1 / -1" }}>
+            <span>Collector Output Folder</span>
+            <input
+              value={cameraConfig.collectorOutputPath || ""}
+              onChange={(event) =>
+                updateConfig("collectorOutputPath", event.target.value)
+              }
               autoComplete="off"
             />
           </label>
@@ -156,7 +226,9 @@ export default function CameraManager({
             <span>Collector Script</span>
             <input
               value={cameraConfig.collectorScript}
-              onChange={(event) => updateConfig('collectorScript', event.target.value)}
+              onChange={(event) =>
+                updateConfig("collectorScript", event.target.value)
+              }
               autoComplete="off"
             />
           </label>
@@ -164,15 +236,19 @@ export default function CameraManager({
             <span>Stream URL</span>
             <input
               value={cameraConfig.streamUrl}
-              onChange={(event) => updateConfig('streamUrl', event.target.value)}
+              onChange={(event) =>
+                updateConfig("streamUrl", event.target.value)
+              }
               autoComplete="off"
             />
           </label>
-          <label className="checkbox-row" style={{ gridColumn: '1 / -1' }}>
+          <label className="checkbox-row" style={{ gridColumn: "1 / -1" }}>
             <input
               type="checkbox"
               checked={cameraConfig.useSudo}
-              onChange={(event) => updateConfig('useSudo', event.target.checked)}
+              onChange={(event) =>
+                updateConfig("useSudo", event.target.checked)
+              }
             />
             <span>Run GoPro scripts with sudo</span>
           </label>
@@ -182,7 +258,9 @@ export default function CameraManager({
             onClick={onPatchGoproToJetson}
             disabled={busy}
           >
-            {busyAction === 'patch-gopro-jetson' ? 'Patching...' : 'Patch Code to Jetson'}
+            {busyAction === "patch-gopro-jetson"
+              ? "Patching..."
+              : "Patch Code to Jetson"}
           </button>
         </div>
       </details>
@@ -202,48 +280,85 @@ export default function CameraManager({
               <span>tmux Session</span>
               <input
                 value={cameraConfig.streamSession}
-                onChange={(event) => updateConfig('streamSession', event.target.value)}
+                onChange={(event) =>
+                  updateConfig("streamSession", event.target.value)
+                }
                 autoComplete="off"
               />
             </label>
 
             <div className="button-row">
-              <button type="button" onClick={() => onCameraAction('start-stream')} disabled={busy}>
-                {busyAction === 'camera-start-stream' ? 'Starting...' : 'Start Stream'}
+              <button
+                type="button"
+                onClick={() => onCameraAction("start-stream")}
+                disabled={busy}
+              >
+                {busyAction === "camera-start-stream"
+                  ? "Starting..."
+                  : "Start Stream"}
               </button>
-              <button type="button" className="secondary" onClick={() => onCameraAction('stop-stream')} disabled={busy}>
-                {busyAction === 'camera-stop-stream' ? 'Stopping...' : 'Stop Stream'}
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => onCameraAction("stop-stream")}
+                disabled={busy}
+              >
+                {busyAction === "camera-stop-stream"
+                  ? "Stopping..."
+                  : "Stop Stream"}
               </button>
             </div>
 
             <div className="capture-row">
-              <button type="button" className="secondary" onClick={() => onCameraAction('capture-frame')} disabled={busy} style={{ width: '100%' }}>
-                {busyAction === 'camera-capture-frame' ? 'Capturing...' : '📷 Capture Frame'}
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => onCameraAction("capture-frame")}
+                disabled={busy}
+                style={{ width: "100%" }}
+              >
+                {busyAction === "camera-capture-frame"
+                  ? "Capturing..."
+                  : "📷 Capture Frame"}
               </button>
 
-              {(captureImage || capturePreviewError || busyAction === 'camera-capture-frame') && (
+              {(captureImage ||
+                capturePreviewError ||
+                busyAction === "camera-capture-frame") && (
                 <div className="capture-preview">
                   {captureImage ? (
                     <>
                       <div className="capture-preview-header">
-                        <span className="capture-preview-filename" title={captureImage.path}>
-                          {captureImage.path.split('/').pop()}
+                        <span
+                          className="capture-preview-filename"
+                          title={captureImage.path}
+                        >
+                          {captureImage.path.split("/").pop()}
                         </span>
-                        <button type="button" className="secondary capture-preview-dismiss" onClick={onClearCapture}>
+                        <button
+                          type="button"
+                          className="secondary capture-preview-dismiss"
+                          onClick={onClearCapture}
+                        >
                           ✕
                         </button>
                       </div>
-                      <img src={captureImage.dataUrl} alt="Captured frame" className="capture-preview-image" />
+                      <img
+                        src={captureImage.dataUrl}
+                        alt="Captured frame"
+                        className="capture-preview-image"
+                      />
                     </>
                   ) : capturePreviewError ? (
-                    <p className="capture-preview-error">{capturePreviewError}</p>
+                    <p className="capture-preview-error">
+                      {capturePreviewError}
+                    </p>
                   ) : (
                     <p className="capture-preview-loading">Loading preview…</p>
                   )}
                 </div>
               )}
             </div>
-
           </div>
         </section>
 
@@ -260,7 +375,9 @@ export default function CameraManager({
               <span>Session</span>
               <input
                 value={cameraConfig.collectorSession}
-                onChange={(event) => updateConfig('collectorSession', event.target.value)}
+                onChange={(event) =>
+                  updateConfig("collectorSession", event.target.value)
+                }
                 autoComplete="off"
               />
             </label>
@@ -270,7 +387,9 @@ export default function CameraManager({
                 type="number"
                 min="1"
                 value={cameraConfig.durationSeconds}
-                onChange={(event) => updateConfig('durationSeconds', Number(event.target.value))}
+                onChange={(event) =>
+                  updateConfig("durationSeconds", Number(event.target.value))
+                }
               />
             </label>
             <label>
@@ -279,7 +398,9 @@ export default function CameraManager({
                 type="number"
                 min="1"
                 value={cameraConfig.samples}
-                onChange={(event) => updateConfig('samples', Number(event.target.value))}
+                onChange={(event) =>
+                  updateConfig("samples", Number(event.target.value))
+                }
               />
             </label>
             <label>
@@ -288,17 +409,59 @@ export default function CameraManager({
                 type="number"
                 min="0"
                 value={cameraConfig.pauseSeconds}
-                onChange={(event) => updateConfig('pauseSeconds', Number(event.target.value))}
+                onChange={(event) =>
+                  updateConfig("pauseSeconds", Number(event.target.value))
+                }
               />
             </label>
           </div>
 
+          <div className="collector-progress">
+            <div className="collector-progress-header">
+              <span>Collected sample data</span>
+              <strong>
+                {collectorProgress.collected} / {collectorProgress.total || cameraConfig.samples}
+              </strong>
+            </div>
+            <div
+              className="collector-progress-track"
+              aria-label="Collector progress"
+              aria-valuemax={collectorProgress.total || cameraConfig.samples}
+              aria-valuemin="0"
+              aria-valuenow={collectorProgress.collected}
+              role="progressbar"
+            >
+              <span style={{ width: `${collectorProgress.percent}%` }} />
+            </div>
+            <p className="collector-progress-meta">
+              {collectorProgress.currentSample
+                ? `Recording sample ${collectorProgress.currentSample} of ${collectorProgress.total}.`
+                : "Start the collector, then Read Logs to refresh progress."}
+              {collectorProgress.latestSaved
+                ? ` Latest saved: ${collectorProgress.latestSaved.split("/").pop()}`
+                : ""}
+            </p>
+          </div>
+
           <div className="button-row">
-            <button type="button" onClick={() => onCameraAction('start-collector')} disabled={busy}>
-              {busyAction === 'camera-start-collector' ? 'Starting...' : 'Start Collector'}
+            <button
+              type="button"
+              onClick={() => onCameraAction("start-collector")}
+              disabled={busy}
+            >
+              {busyAction === "camera-start-collector"
+                ? "Starting..."
+                : "Start Collector"}
             </button>
-            <button type="button" className="secondary" onClick={() => onCameraAction('stop-collector')} disabled={busy}>
-              {busyAction === 'camera-stop-collector' ? 'Stopping...' : 'Stop Collector'}
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => onCameraAction("stop-collector")}
+              disabled={busy}
+            >
+              {busyAction === "camera-stop-collector"
+                ? "Stopping..."
+                : "Stop Collector"}
             </button>
           </div>
         </section>
@@ -313,12 +476,23 @@ export default function CameraManager({
           </div>
           <div className="button-row">
             {!needsSudo && (
-              <button type="button" className="secondary" onClick={onGrantPasswordlessSudo} disabled={busy} style={{ fontSize: '0.82rem' }}>
-                {busyAction === 'grant-sudo' ? 'Granting...' : 'Grant Sudo'}
+              <button
+                type="button"
+                className="secondary"
+                onClick={onGrantPasswordlessSudo}
+                disabled={busy}
+                style={{ fontSize: "0.82rem" }}
+              >
+                {busyAction === "grant-sudo" ? "Granting..." : "Grant Sudo"}
               </button>
             )}
-            <button type="button" className="secondary" onClick={() => onCameraAction('read-logs')} disabled={busy}>
-              {busyAction === 'camera-read-logs' ? 'Loading...' : 'Read Logs'}
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => onCameraAction("read-logs")}
+              disabled={busy}
+            >
+              {busyAction === "camera-read-logs" ? "Loading..." : "Read Logs"}
             </button>
           </div>
         </div>

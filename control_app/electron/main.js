@@ -15,6 +15,7 @@ const DEFAULT_MONITOR_SESSION = 'plsk_monitor';
 const DEFAULT_CAMERA_CONFIG = {
   basePath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/gopro',
   captureOutputPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/gopro/view_check',
+  collectorOutputPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/sample_video',
   streamScript: 'gopro_start_stream_lin_loop.py',
   stopScript: 'gopro_stop_stream.py',
   captureScript: 'gopro_capture_stream.py',
@@ -538,10 +539,18 @@ function validateCameraConfig(config = {}) {
     return { valid: false, message: captureOutputPath.message };
   }
 
+  const collectorOutputPath = validateRemotePath(
+    config.collectorOutputPath || DEFAULT_CAMERA_CONFIG.collectorOutputPath,
+  );
+  if (!collectorOutputPath.valid) {
+    return { valid: false, message: collectorOutputPath.message };
+  }
+
   return {
     valid: true,
     basePath: basePath.value,
     captureOutputPath: captureOutputPath.value,
+    collectorOutputPath: collectorOutputPath.value,
     ...scripts,
     streamSession: streamSession.value,
     tapSession: tapSession.value,
@@ -1463,6 +1472,7 @@ ipcMain.handle('plsk:camera-action', async (_event, sshAddress, action, config) 
       DURATION: validation.durationSeconds,
       SAMPLES: validation.samples,
       PAUSE_DURATION: validation.pauseSeconds,
+      VIDEO_OUTPUT_DIR: validation.collectorOutputPath,
     }),
   ].join(' && ');
 

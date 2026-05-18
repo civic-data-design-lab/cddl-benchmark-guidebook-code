@@ -22,6 +22,7 @@ const DEFAULT_MONITOR_CONFIG = {
 const DEFAULT_CAMERA_CONFIG = {
   basePath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/gopro',
   captureOutputPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/gopro/view_check',
+  collectorOutputPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/sample_video',
   streamScript: 'gopro_start_stream_lin_loop.py',
   stopScript: 'gopro_stop_stream.py',
   captureScript: 'gopro_capture_stream.py',
@@ -129,6 +130,33 @@ export default function App() {
   const [busyAction, setBusyAction] = useState('');
   const [captureImage, setCaptureImage] = useState(null); // { dataUrl, path }
   const [capturePreviewError, setCapturePreviewError] = useState('');
+
+  useEffect(() => {
+    if (activePage !== 'camera' || cameraStatus?.collectorSession !== 'running') {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function refreshCameraLogsSilently() {
+      try {
+        const result = await plskApi.runCameraAction(device.sshAddress, 'read-logs', cameraConfig);
+        if (!cancelled && result.ok) {
+          setCameraLog(result.detail || '');
+        }
+      } catch {
+        // Keep the visible status stable while background log polling is active.
+      }
+    }
+
+    refreshCameraLogsSilently();
+    const timerId = window.setInterval(refreshCameraLogsSilently, 10000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timerId);
+    };
+  }, [activePage, cameraStatus?.collectorSession, cameraConfig, device.sshAddress]);
   useEffect(() => {
     let mounted = true;
 
@@ -639,6 +667,21 @@ export default function App() {
       const result = await plskApi.runCameraAction(device.sshAddress, action, cameraConfig);
       if (action === 'read-logs' && result.ok) {
         setCameraLog(result.detail || '');
+      }
+
+      if (action === 'start-collector' && result.ok) {
+        setCameraStatus((current) => ({
+          ...(current || {}),
+          collectorSession: 'running',
+        }));
+        setCameraLog((current) => current || '[Collector]\nCollector session started.\n');
+      }
+
+      if (action === 'stop-collector' && result.ok) {
+        setCameraStatus((current) => ({
+          ...(current || {}),
+          collectorSession: 'stopped',
+        }));
       }
 
       let previewFailed = false;
