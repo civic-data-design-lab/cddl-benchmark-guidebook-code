@@ -7,6 +7,7 @@ const cvDependencyRows = [
   ["tmux", "tmux"],
   ["opencv", "OpenCV"],
   ["ultralytics", "Ultralytics"],
+  ["torchCuda", "Torch CUDA"],
   ["script", "Detection Script"],
   ["poseModel", "Pose Model"],
   ["benchModel", "Bench Model"],
@@ -147,6 +148,17 @@ export default function ComputerVisionManager({
                 onChange={(event) => updateConfig("poseModelPath", event.target.value)}
               />
             </label>
+            <label>
+              <span>Model Device</span>
+              <select
+                value={cvConfig.modelDevice || "cuda"}
+                onChange={(event) => updateConfig("modelDevice", event.target.value)}
+              >
+                <option value="cuda">CUDA (preferred)</option>
+                <option value="auto">Auto (CUDA then CPU)</option>
+                <option value="cpu">CPU</option>
+              </select>
+            </label>
             <label className="checkbox-row" style={{ gridColumn: "1 / -1" }}>
               <input
                 type="checkbox"
@@ -185,6 +197,14 @@ export default function ComputerVisionManager({
               disabled={busy}
             >
               {busyAction === "cv-setup-env" ? "Setting..." : "Setup Conda Env (plsk)"}
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => onCvAction("setup-cuda")}
+              disabled={busy}
+            >
+              {busyAction === "cv-setup-cuda" ? "Setting..." : "Setup CUDA Torch"}
             </button>
             <button
               type="button"

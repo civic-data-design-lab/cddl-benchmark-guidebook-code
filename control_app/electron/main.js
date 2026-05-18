@@ -40,6 +40,7 @@ const DEFAULT_CV_CONFIG = {
   outputPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/data',
   logPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/logs',
   poseModelPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/yolov8l-pose.pt',
+  modelDevice: 'cuda',
   enableBenchModel: false,
   benchModelPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/bench_version2025/bench_10x/weights/best.pt',
   sittingModelPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/sitting_version2025/sitting_3x/weights/best.pt',
@@ -646,6 +647,10 @@ function validateCvConfig(config = {}) {
   if (!sittingModelPath.valid) {
     return { valid: false, message: sittingModelPath.message };
   }
+  const modelDevice = String(config.modelDevice || 'cuda').trim().toLowerCase();
+  if (!new Set(['cuda', 'auto', 'cpu']).has(modelDevice)) {
+    return { valid: false, message: 'Model device must be one of: cuda, auto, cpu.' };
+  }
 
   return {
     valid: true,
@@ -658,6 +663,7 @@ function validateCvConfig(config = {}) {
     outputPath: outputPath.value,
     logPath: logPath.value,
     poseModelPath: poseModelPath.value,
+    modelDevice,
     enableBenchModel: Boolean(config.enableBenchModel),
     benchModelPath: benchModelPath.value,
     sittingModelPath: sittingModelPath.value,
@@ -1492,6 +1498,16 @@ python3 - <<'PY' >/dev/null 2>&1
 from ultralytics import YOLO
 PY
 if [ "$?" -eq 0 ]; then print_field ultralytics ok; else print_field ultralytics missing; fi
+if [ -n "$env_cmd" ] && "$env_cmd" env list | awk '{print $1}' | grep -qx "$conda_env"; then
+  "$env_cmd" run -n "$conda_env" python3 - <<'PY' >/dev/null 2>&1
+import torch
+assert torch.cuda.is_available()
+torch.zeros(1).to("cuda")
+PY
+  if [ "$?" -eq 0 ]; then print_field torchCuda ok; else print_field torchCuda missing; fi
+else
+  print_field torchCuda unknown
+fi
 if [ -f "$base/$script_name" ]; then print_field script ok; else print_field script missing; fi
 if [ -f "$pose_model" ]; then print_field poseModel ok; else print_field poseModel missing; fi
 if [ "$bench_enabled" = "1" ]; then
@@ -1525,7 +1541,7 @@ ipcMain.handle('plsk:cv-action', async (_event, sshAddress, action, config) => {
     return { ok: false, message: validation.message, detail: '' };
   }
 
-  const actions = new Set(['setup-env', 'start', 'stop', 'read-logs', 'patch-script']);
+  const actions = new Set(['setup-env', 'setup-cuda', 'start', 'stop', 'read-logs', 'patch-script']);
   if (!actions.has(action)) {
     return { ok: false, message: 'Invalid CV action.', detail: '' };
   }
@@ -1567,6 +1583,92 @@ fi
     return {
       ok: true,
       message: `Conda env ${validation.condaEnvName} is ready.`,
+      detail: [result.stdout, result.stderr].filter(Boolean).join('\n'),
+    };
+  }
+
+  if (action === 'setup-cuda') {
+    const setupCudaScript = `
+env_name=${shellQuote(validation.condaEnvName)}
+env_cmd=""
+if command -v conda >/dev/null 2>&1; then env_cmd="conda"; fi
+if [ -z "$env_cmd" ] && [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then . "$HOME/miniconda3/etc/profile.d/conda.sh"; fi
+if [ -z "$env_cmd" ] && [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then . "$HOME/anaconda3/etc/profile.d/conda.sh"; fi
+if [ -z "$env_cmd" ] && command -v conda >/dev/null 2>&1; then env_cmd="conda"; fi
+if [ -z "$env_cmd" ] && [ -x "$HOME/miniconda3/bin/conda" ]; then env_cmd="$HOME/miniconda3/bin/conda"; fi
+if [ -z "$env_cmd" ] && [ -x "$HOME/anaconda3/bin/conda" ]; then env_cmd="$HOME/anaconda3/bin/conda"; fi
+if [ -z "$env_cmd" ] && command -v mamba >/dev/null 2>&1; then env_cmd="mamba"; fi
+if [ -z "$env_cmd" ] && command -v micromamba >/dev/null 2>&1; then env_cmd="micromamba"; fi
+if [ -z "$env_cmd" ]; then printf 'No conda-compatible manager found (conda/mamba/micromamba).' >&2; exit 127; fi
+if ! "$env_cmd" env list | awk '{print $1}' | grep -qx "$env_name"; then
+  printf 'Conda env %s not found. Run Setup Conda Env first.' "$env_name" >&2
+  exit 1
+fi
+
+index_url=""
+torch_ver=""
+tv_ver=""
+numpy_spec="numpy==1.26.1"
+apt_install_if_available() {
+  package_name="$1"
+  if apt-cache show "$package_name" >/dev/null 2>&1; then
+    sudo -n apt-get install -y "$package_name"
+  else
+    printf 'Package not available from apt repo: %s\\n' "$package_name"
+  fi
+}
+sudo -n apt-get update
+sudo -n apt-get install -y python3-pip libopenblas-dev
+if [ -f /etc/nv_tegra_release ] && grep -q 'R36' /etc/nv_tegra_release; then
+  apt_install_if_available "libcudnn9-cuda-12"
+  apt_install_if_available "libcudnn9-dev-cuda-12"
+  apt_install_if_available "cuda-cupti-12-6"
+  index_url="https://pypi.jetson-ai-lab.io/jp6/cu126"
+  torch_ver="2.8.0"
+  tv_ver="0.23.0"
+elif [ -f /etc/nv_tegra_release ] && grep -q 'R35' /etc/nv_tegra_release; then
+  apt_install_if_available "libcudnn8"
+  apt_install_if_available "libcudnn8-dev"
+  index_url="https://pypi.jetson-ai-lab.io/jp5/cu114"
+  torch_ver="2.4.0"
+  tv_ver="0.19.1"
+else
+  printf 'Could not determine supported JetPack release from /etc/nv_tegra_release. Supported: R35 (JP5), R36 (JP6).' >&2
+  exit 1
+fi
+
+printf 'Using index: %s\\n' "$index_url"
+"$env_cmd" run -n "$env_name" python3 -m pip install --upgrade pip setuptools wheel
+"$env_cmd" run -n "$env_name" python3 -m pip uninstall -y torch torchvision torchaudio || true
+"$env_cmd" run -n "$env_name" python3 -m pip install --upgrade --force-reinstall --no-cache-dir "$numpy_spec"
+"$env_cmd" run -n "$env_name" python3 -m pip install --upgrade --force-reinstall --no-cache-dir torch=="$torch_ver" torchvision=="$tv_ver" --index-url "$index_url"
+"$env_cmd" run -n "$env_name" python3 - <<'PY'
+import torch
+print("torch_version=", torch.__version__)
+print("torch_cuda_version=", torch.version.cuda)
+print("cuda_available=", torch.cuda.is_available())
+if torch.cuda.is_available():
+    x = torch.zeros(1).to("cuda")
+    print("cuda_tensor_device=", x.device)
+else:
+    raise SystemExit("Torch imported, but CUDA is not available.")
+print("cudnn_version=", torch.backends.cudnn.version())
+PY
+`.trim();
+
+    const result = await runSshRemoteCommand(
+      sshAddress,
+      `bash -lc ${shellQuote(setupCudaScript)}`,
+      { connectTimeout: 60 },
+    );
+
+    if (!result.ok) {
+      return result;
+    }
+
+    return {
+      ok: true,
+      message: `CUDA setup completed for conda env ${validation.condaEnvName}.`,
       detail: [result.stdout, result.stderr].filter(Boolean).join('\n'),
     };
   }
@@ -1647,6 +1749,7 @@ fi
       MODEL_BENCH_PATH: validation.benchModelPath,
       ENABLE_SITTING_MODEL: '1',
       MODEL_SITTING_PATH: validation.sittingModelPath,
+      MODEL_DEVICE: validation.modelDevice,
     }) + ` >> ${shellQuote(`${validation.logPath.replace(/\/$/, '')}/cv_session.log`)} 2>&1`,
   ].join(' && ');
 
@@ -1697,6 +1800,7 @@ fi
 
   const messages = {
     'setup-env': 'Conda environment setup requested.',
+    'setup-cuda': 'CUDA setup requested.',
     start: 'CV detection start requested.',
     stop: 'CV detection stop requested.',
     'read-logs': 'CV logs loaded.',

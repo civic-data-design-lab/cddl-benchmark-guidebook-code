@@ -50,6 +50,7 @@ const DEFAULT_CV_CONFIG = {
   outputPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/data',
   logPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/logs',
   poseModelPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/yolov8l-pose.pt',
+  modelDevice: 'cuda',
   enableBenchModel: false,
   benchModelPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/bench_version2025/bench_10x/weights/best.pt',
   sittingModelPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/sitting_version2025/sitting_3x/weights/best.pt',
@@ -838,6 +839,9 @@ export default function App() {
     if (action === 'setup-env') {
       setCvLog('[CV ENV]\nStarting conda environment setup...\n');
     }
+    if (action === 'setup-cuda') {
+      setCvLog('[CV CUDA]\nStarting CUDA/PyTorch setup...\n');
+    }
     if (action === 'start') {
       setCvLog('[CV]\nStarting detection session...\n');
     }
@@ -847,7 +851,13 @@ export default function App() {
 
     try {
       const result = await plskApi.runCvAction(device.sshAddress, action, cvConfig);
-      if (action === 'read-logs' || action === 'setup-env' || action === 'start' || action === 'stop') {
+      if (
+        action === 'read-logs' ||
+        action === 'setup-env' ||
+        action === 'setup-cuda' ||
+        action === 'start' ||
+        action === 'stop'
+      ) {
         setCvLog(result.detail || result.message || '');
       }
 
