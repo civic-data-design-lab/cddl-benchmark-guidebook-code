@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { spawn } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
@@ -66,6 +66,22 @@ function createWindow() {
   } else {
     window.loadURL(VITE_DEV_SERVER_URL);
   }
+
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    }
+
+    return { action: 'allow' };
+  });
+
+  window.webContents.on('will-navigate', (event, url) => {
+    if (/^https?:\/\//i.test(url)) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
+  });
 }
 
 function runCommand(command, args, options = {}) {
@@ -1616,7 +1632,11 @@ fi
   };
 
   const runCommandText = [
+    `mkdir -p ${shellQuote(validation.logPath)}`,
     `cd ${shellQuote(validation.basePath)}`,
+    `printf '[CV] Started at %s\\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> ${shellQuote(
+      `${validation.logPath.replace(/\/$/, '')}/cv_session.log`,
+    )}`,
     pythonCommandWithEnv(validation.script, {
       STREAM_URL: validation.streamUrl,
       OUTPUT_BASE_DIR: validation.outputPath,
@@ -1627,7 +1647,7 @@ fi
       MODEL_BENCH_PATH: validation.benchModelPath,
       ENABLE_SITTING_MODEL: '1',
       MODEL_SITTING_PATH: validation.sittingModelPath,
-    }),
+    }) + ` >> ${shellQuote(`${validation.logPath.replace(/\/$/, '')}/cv_session.log`)} 2>&1`,
   ].join(' && ');
 
   const scripts = {
@@ -1637,7 +1657,14 @@ run_command=${shellQuote(runCommandText)}
 if ! command -v tmux >/dev/null 2>&1; then printf 'tmux is not available.' >&2; exit 127; fi
 if tmux has-session -t "$session" 2>/dev/null; then printf 'CV session already running.'; exit 0; fi
 tmux new-session -d -s "$session" "$run_command"
-printf 'CV session started.'
+tmux set-option -t "$session:0" remain-on-exit failed >/dev/null 2>&1 || true
+sleep 1
+if tmux has-session -t "$session" 2>/dev/null; then
+  printf 'CV session started.'
+else
+  printf 'CV session exited immediately. Check Read Logs and model/env paths.' >&2
+  exit 1
+fi
 `,
     stop: `
 session=${shellQuote(validation.session)}
@@ -1645,9 +1672,13 @@ if tmux has-session -t "$session" 2>/dev/null; then tmux kill-session -t "$sessi
 `,
     'read-logs': `
 session=${shellQuote(validation.session)}
+log_file=${shellQuote(`${validation.logPath.replace(/\/$/, '')}/cv_session.log`)}
 if command -v tmux >/dev/null 2>&1 && tmux has-session -t "$session" 2>/dev/null; then
   printf '[CV]\\n'
   tmux capture-pane -p -t "$session" -S -400
+elif [ -f "$log_file" ]; then
+  printf '[CV]\\nNot running. Last saved log:\\n'
+  tail -n 400 "$log_file"
 else
   printf '[CV]\\nNot running.\\n'
 fi

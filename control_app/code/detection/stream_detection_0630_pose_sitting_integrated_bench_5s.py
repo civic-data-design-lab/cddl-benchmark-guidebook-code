@@ -33,6 +33,39 @@ def env_bool(name, default=False):
         return default
     return str(raw).strip().lower() in {"1", "true", "yes", "on"}
 
+def get_inference_device():
+    requested = os.getenv("MODEL_DEVICE", "auto").strip().lower()
+    if requested == "cpu":
+        logging.info("MODEL_DEVICE=cpu; running inference on CPU.")
+        return "cpu"
+
+    if requested == "cuda":
+        try:
+            _ = torch.zeros(1).to("cuda")
+            logging.info("MODEL_DEVICE=cuda; running inference on CUDA.")
+            return "cuda"
+        except Exception as error:
+            logging.warning(f"Requested CUDA but initialization failed, falling back to CPU: {error}")
+            return "cpu"
+
+    # auto mode: prefer CUDA when it can be initialized, otherwise CPU
+    try:
+        if torch.cuda.is_available():
+            _ = torch.zeros(1).to("cuda")
+            logging.info("CUDA is available; running inference on CUDA.")
+            return "cuda"
+    except Exception as error:
+        logging.warning(f"CUDA check/init failed, falling back to CPU: {error}")
+
+    logging.info("CUDA not available; running inference on CPU.")
+    return "cpu"
+
+INFERENCE_DEVICE = get_inference_device()
+
+def load_yolo_model(model_path):
+    model = YOLO(model_path)
+    return model.to(INFERENCE_DEVICE)
+
 class GeoJSONSaver:
     def __init__(self, geojson_dir, save_interval=60, grid_path=None):
         self.geojson_dir = geojson_dir
@@ -111,7 +144,7 @@ class GeoJSONSaver:
 
 class BenchDetection:
     def __init__(self, model_path, geojson_dir, grid_path=None):
-        self.model = YOLO(model_path).to('cuda')
+        self.model = load_yolo_model(model_path)
         self.geojson_saver = GeoJSONSaver(geojson_dir, grid_path=grid_path)
         self.last_detection_time = 0
         self.detection_interval = 5.0  # 5 seconds
@@ -164,8 +197,8 @@ class BenchDetection:
 
 class PoseAndSittingDetection:
     def __init__(self, model_path_pose, model_path_sitting, geojson_dir_ped, geojson_dir_sitting, grid_path=None):
-        self.model_pose = YOLO(model_path_pose).to('cuda')
-        self.model_sitting = YOLO(model_path_sitting).to('cuda') if model_path_sitting else None
+        self.model_pose = load_yolo_model(model_path_pose)
+        self.model_sitting = load_yolo_model(model_path_sitting) if model_path_sitting else None
         self.geojson_saver_ped = GeoJSONSaver(geojson_dir_ped, grid_path=grid_path)
         self.geojson_saver_sitting = GeoJSONSaver(geojson_dir_sitting, grid_path=grid_path) if geojson_dir_sitting else None
         self.keypoint_pairs = {

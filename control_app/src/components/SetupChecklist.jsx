@@ -38,10 +38,50 @@ export default function SetupChecklist({
         </button>
       </div>
 
+      <div className="setup-guide-intro">
+        <p>
+          This setup connects your laptop to Jetson over a private Tailscale
+          network. The app checks if required tools are installed, then helps
+          you verify the connection.
+        </p>
+      </div>
+
       <div className="checklist">
         <ToolRow name="tailscale" result={dependencies?.tailscale} />
         <ToolRow name="ssh" result={dependencies?.ssh} />
         <ToolRow name="code" result={dependencies?.code} />
+      </div>
+
+      <div className="setup-steps">
+        <h3>Install and Setup</h3>
+        <ol>
+          <li>
+            Install Tailscale on your laptop from{" "}
+            <a
+              href="https://tailscale.com/download"
+              target="_blank"
+              rel="noreferrer"
+            >
+              tailscale.com/download
+            </a>{" "}
+            and log in.
+          </li>
+          <li>
+            In Jetson terminal, run:
+            <pre className="setup-command-block">
+              <code>bash jetson/install-jetson-ssh.sh</code>
+            </pre>
+            This setup should install and configure SSH/Tailscale, guide login,
+            and bring Tailscale up.
+          </li>
+          <li>
+            Confirm SSH is enabled on Jetson.
+          </li>
+          <li>
+            In this app, run <strong>Run Setup Check</strong>, then use{" "}
+            <strong>Show Configuration Status</strong>.
+          </li>
+        </ol>
       </div>
 
       {hasDependencies && !dependencies.code.installed ? (
@@ -60,6 +100,16 @@ export default function SetupChecklist({
           <p>
             Install Tailscale here too, log in with the same Tailscale account
             as the Jetson, and run the setup check again.
+          </p>
+        </div>
+      ) : null}
+
+      {hasDependencies && !dependencies.ssh.installed ? (
+        <div className="note warning">
+          <strong>SSH client is missing on this laptop.</strong>
+          <p>
+            Install OpenSSH client, then run setup check again. This app uses
+            SSH to run Jetson commands and open remote sessions.
           </p>
         </div>
       ) : null}

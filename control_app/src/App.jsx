@@ -178,6 +178,42 @@ export default function App() {
       window.clearInterval(timerId);
     };
   }, [activePage, cameraStatus?.collectorSession, cameraConfig, device.sshAddress]);
+
+  useEffect(() => {
+    if (activePage !== 'cv' || cvStatus?.sessionState !== 'running') {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function refreshCvLogsSilently() {
+      try {
+        const [logResult, statusResult] = await Promise.all([
+          plskApi.runCvAction(device.sshAddress, 'read-logs', cvConfig),
+          plskApi.getCvStatus(device.sshAddress, cvConfig),
+        ]);
+
+        if (!cancelled && logResult?.ok) {
+          setCvLog(logResult.detail || '');
+        }
+
+        if (!cancelled && statusResult?.ok) {
+          setCvStatus(statusResult.status || null);
+        }
+      } catch {
+        // Keep visible status stable while background CV polling is active.
+      }
+    }
+
+    refreshCvLogsSilently();
+    const timerId = window.setInterval(refreshCvLogsSilently, 10000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timerId);
+    };
+  }, [activePage, cvStatus?.sessionState, cvConfig, device.sshAddress]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -799,23 +835,56 @@ export default function App() {
     if (action === 'read-logs') {
       setCvLog('[CV]\nLoading logs...\n');
     }
+    if (action === 'setup-env') {
+      setCvLog('[CV ENV]\nStarting conda environment setup...\n');
+    }
+    if (action === 'start') {
+      setCvLog('[CV]\nStarting detection session...\n');
+    }
+    if (action === 'stop') {
+      setCvLog('[CV]\nStopping detection session...\n');
+    }
 
     try {
       const result = await plskApi.runCvAction(device.sshAddress, action, cvConfig);
-      if (action === 'read-logs' && result.ok) {
-        setCvLog(result.detail || '');
+      if (action === 'read-logs' || action === 'setup-env' || action === 'start' || action === 'stop') {
+        setCvLog(result.detail || result.message || '');
       }
-      if (action === 'start' && result.ok) {
-        setCvStatus((current) => ({ ...(current || {}), sessionState: 'running' }));
-      }
-      if (action === 'stop' && result.ok) {
-        setCvStatus((current) => ({ ...(current || {}), sessionState: 'stopped' }));
-      }
-      setStatus({
+
+      let statusPayload = {
         type: result.ok ? 'success' : 'error',
         message: result.message,
         detail: result.detail,
-      });
+      };
+
+      if (action === 'start' || action === 'stop') {
+        const [statusResult, logResult] = await Promise.all([
+          plskApi.getCvStatus(device.sshAddress, cvConfig),
+          plskApi.runCvAction(device.sshAddress, 'read-logs', cvConfig),
+        ]);
+
+        if (statusResult.ok) {
+          setCvStatus(statusResult.status || null);
+        }
+        if (logResult.ok) {
+          setCvLog(logResult.detail || '');
+        }
+
+        if (
+          action === 'start' &&
+          result.ok &&
+          statusResult.ok &&
+          statusResult.status?.sessionState !== 'running'
+        ) {
+          statusPayload = {
+            type: 'error',
+            message: 'CV start command ran, but session is not running.',
+            detail: logResult.detail || statusResult.detail || result.detail,
+          };
+        }
+      }
+
+      setStatus(statusPayload);
     } catch (error) {
       setStatus({ type: 'error', message: error.message });
     } finally {

@@ -226,6 +226,58 @@ pre {
   padding: 14px;
 }
 
+.setup-guide-intro {
+  background: #f8fafc;
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+}
+
+.setup-guide-intro p {
+  color: #415466;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.setup-steps {
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  margin-top: 14px;
+  padding: 14px 16px;
+}
+
+.setup-steps h3 {
+  font-size: 0.98rem;
+  margin: 0 0 10px;
+}
+
+.setup-steps ol {
+  color: #334155;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.setup-steps li {
+  line-height: 1.45;
+  margin: 0 0 8px;
+}
+
+.setup-steps li:last-child {
+  margin-bottom: 0;
+}
+
+.setup-command-block {
+  background: #111827;
+  border-radius: 8px;
+  color: #e5edf5;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  margin: 8px 0;
+  overflow: auto;
+  padding: 12px;
+}
+
 .device-form {
   display: grid;
   gap: 16px;
