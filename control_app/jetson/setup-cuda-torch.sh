@@ -112,10 +112,10 @@ esac
 echo
 echo "Reinstalling CUDA-enabled Torch in conda env '${ENV_NAME}'..."
 "$CONDA_BIN" run -n "$ENV_NAME" python3 -m pip install --upgrade pip setuptools wheel
-"$CONDA_BIN" run -n "$ENV_NAME" python3 -m pip install --no-cache-dir --force-reinstall "$NUMPY_SPEC"
 "$CONDA_BIN" run -n "$ENV_NAME" python3 -m pip install \
   --no-cache-dir \
   --force-reinstall \
+  "$NUMPY_SPEC" \
   "torch==${TORCH_VERSION}" \
   "torchvision==${TORCHVISION_VERSION}" \
   --index-url "$PYTORCH_INDEX_URL"

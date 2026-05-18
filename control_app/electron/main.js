@@ -1639,8 +1639,7 @@ fi
 
 printf 'Using index: %s\\n' "$index_url"
 "$env_cmd" run -n "$env_name" python3 -m pip install --upgrade pip setuptools wheel
-"$env_cmd" run -n "$env_name" python3 -m pip install --upgrade --force-reinstall --no-cache-dir "$numpy_spec"
-"$env_cmd" run -n "$env_name" python3 -m pip install --upgrade --force-reinstall --no-cache-dir torch=="$torch_ver" torchvision=="$tv_ver" --index-url "$index_url"
+"$env_cmd" run -n "$env_name" python3 -m pip install --upgrade --force-reinstall --no-cache-dir "$numpy_spec" torch=="$torch_ver" torchvision=="$tv_ver" --index-url "$index_url"
 "$env_cmd" run -n "$env_name" python3 - <<'PY'
 import torch
 print("torch_version=", torch.__version__)
