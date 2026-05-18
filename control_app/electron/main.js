@@ -1453,10 +1453,14 @@ bench_enabled=${shellQuote(validation.enableBenchModel ? '1' : '0')}
 bench_model=${shellQuote(validation.benchModelPath)}
 sitting_model=${shellQuote(validation.sittingModelPath)}
 print_field() { printf '%s=%s\\n' "$1" "$2"; }
+env_cmd=""
+if command -v conda >/dev/null 2>&1; then env_cmd="conda"; fi
+if [ -z "$env_cmd" ] && command -v mamba >/dev/null 2>&1; then env_cmd="mamba"; fi
+if [ -z "$env_cmd" ] && command -v micromamba >/dev/null 2>&1; then env_cmd="micromamba"; fi
 if [ -d "$base" ]; then print_field basePath ok; else print_field basePath missing; fi
-if command -v conda >/dev/null 2>&1; then print_field conda ok; else print_field conda missing; fi
+if [ -n "$env_cmd" ]; then print_field conda ok; else print_field conda missing; fi
 if [ -f "$env_yml" ]; then print_field environmentYaml ok; else print_field environmentYaml missing; fi
-if command -v conda >/dev/null 2>&1 && conda env list | awk '{print $1}' | grep -qx "$conda_env"; then print_field condaEnv ok; else print_field condaEnv missing; fi
+if [ -n "$env_cmd" ] && "$env_cmd" env list | awk '{print $1}' | grep -qx "$conda_env"; then print_field condaEnv ok; else print_field condaEnv missing; fi
 if command -v python3 >/dev/null 2>&1; then print_field python ok; else print_field python missing; fi
 if command -v tmux >/dev/null 2>&1; then print_field tmux ok; else print_field tmux missing; fi
 python3 - <<'PY' >/dev/null 2>&1
@@ -1509,14 +1513,18 @@ ipcMain.handle('plsk:cv-action', async (_event, sshAddress, action, config) => {
     const setupScript = `
 env_name=${shellQuote(validation.condaEnvName)}
 env_yml=${shellQuote(validation.environmentYamlPath)}
-if ! command -v conda >/dev/null 2>&1; then printf 'conda is not available on this Jetson.' >&2; exit 127; fi
+env_cmd=""
+if command -v conda >/dev/null 2>&1; then env_cmd="conda"; fi
+if [ -z "$env_cmd" ] && command -v mamba >/dev/null 2>&1; then env_cmd="mamba"; fi
+if [ -z "$env_cmd" ] && command -v micromamba >/dev/null 2>&1; then env_cmd="micromamba"; fi
+if [ -z "$env_cmd" ]; then printf 'No conda-compatible manager found (conda/mamba/micromamba).' >&2; exit 127; fi
 if [ ! -f "$env_yml" ]; then printf 'environment.yml not found: %s' "$env_yml" >&2; exit 1; fi
-if conda env list | awk '{print $1}' | grep -qx "$env_name"; then
-  conda env update -n "$env_name" -f "$env_yml" --prune
-  printf 'Conda env %s updated from %s.' "$env_name" "$env_yml"
+if "$env_cmd" env list | awk '{print $1}' | grep -qx "$env_name"; then
+  "$env_cmd" env update -n "$env_name" -f "$env_yml" --prune
+  printf '%s env %s updated from %s.' "$env_cmd" "$env_name" "$env_yml"
 else
-  conda env create -n "$env_name" -f "$env_yml"
-  printf 'Conda env %s created from %s.' "$env_name" "$env_yml"
+  "$env_cmd" env create -n "$env_name" -f "$env_yml"
+  printf '%s env %s created from %s.' "$env_cmd" "$env_name" "$env_yml"
 fi
 `.trim();
 
@@ -1581,10 +1589,15 @@ fi
     const envArgs = Object.entries(env)
       .map(([key, value]) => `${key}=${shellQuote(String(value))}`)
       .join(' ');
-    const condaRun = `conda run -n ${shellQuote(validation.condaEnvName)} python ${shellQuote(scriptName)}`;
-    return validation.useSudo
-      ? `sudo -n env ${envArgs} ${condaRun}`
-      : `${envArgs} ${condaRun}`;
+    const detectEnvCmd = [
+      'env_cmd=""',
+      'if command -v conda >/dev/null 2>&1; then env_cmd="conda"; fi',
+      'if [ -z "$env_cmd" ] && command -v mamba >/dev/null 2>&1; then env_cmd="mamba"; fi',
+      'if [ -z "$env_cmd" ] && command -v micromamba >/dev/null 2>&1; then env_cmd="micromamba"; fi',
+      'if [ -z "$env_cmd" ]; then printf "No conda-compatible manager found (conda/mamba/micromamba)." >&2; exit 127; fi',
+    ].join('; ');
+    const runBlock = `${detectEnvCmd}; ${envArgs} "$env_cmd" run -n ${shellQuote(validation.condaEnvName)} python ${shellQuote(scriptName)}`;
+    return validation.useSudo ? `sudo -n sh -lc ${shellQuote(runBlock)}` : `sh -lc ${shellQuote(runBlock)}`;
   };
 
   const runCommandText = [
