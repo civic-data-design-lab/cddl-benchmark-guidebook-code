@@ -39,14 +39,19 @@ def upload_to_gcs(local_file, bucket_name, blob_name):
         logging.error(f"Failed to upload to GCS: {e}")
 
 def make_gcs_file_public(bucket, blob):
+    if subprocess.call(['which', 'gsutil'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
+        logging.warning("gsutil is not installed. Skipping public ACL update.")
+        return
     try:
-        result = subprocess.run(
+        subprocess.run(
             ["gsutil", "acl", "ch", "-u", "AllUsers:R", f"gs://{bucket}/{blob}"],
             check=True,
             capture_output=True,
             text=True
         )
         logging.info(f"Made gs://{bucket}/{blob} public.")
+    except FileNotFoundError:
+        logging.warning("gsutil was not found at runtime. Skipping public ACL update.")
     except subprocess.CalledProcessError as e:
         logging.error(f"Failed to make public: {e.stderr}")
 
@@ -94,14 +99,16 @@ def capture_stream_with_ffmpeg(stream_url, duration=120, output_directory=VIDEO_
     except Exception as e:
         logging.error(f"Failed to update recent footage: {e}")
 
-    # Upload recent_footage.mp4 to GCS and make it public
-    recent_blob_name = "videos/recent_footage.mp4"
-    upload_to_gcs(recent_footage_path, GCS_BUCKET, recent_blob_name)
-    make_gcs_file_public(GCS_BUCKET, recent_blob_name)
+    # Uploads are optional. Skip cleanly when cloud dependencies are unavailable.
+    if storage is not None:
+        recent_blob_name = "videos/recent_footage.mp4"
+        upload_to_gcs(recent_footage_path, GCS_BUCKET, recent_blob_name)
+        make_gcs_file_public(GCS_BUCKET, recent_blob_name)
 
-    # Upload to GCS
-    blob_name = os.path.basename(output_file)
-    upload_to_gcs(output_file, GCS_BUCKET, f"videos/{blob_name}")
+        blob_name = os.path.basename(output_file)
+        upload_to_gcs(output_file, GCS_BUCKET, f"videos/{blob_name}")
+    else:
+        logging.info("Cloud upload disabled (google-cloud-storage missing). Keeping files local only.")
 
     logging.info(f"Kept local sample video: {output_file}")
 
