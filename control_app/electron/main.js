@@ -1609,6 +1609,7 @@ index_url=""
 torch_ver=""
 tv_ver=""
 numpy_spec="numpy==1.26.1"
+cuda_root=""
 apt_install_if_available() {
   package_name="$1"
   if apt-cache show "$package_name" >/dev/null 2>&1; then
@@ -1626,16 +1627,45 @@ if [ -f /etc/nv_tegra_release ] && grep -q 'R36' /etc/nv_tegra_release; then
   index_url="https://pypi.jetson-ai-lab.io/jp6/cu126"
   torch_ver="2.8.0"
   tv_ver="0.23.0"
+  cuda_root="/usr/local/cuda-12.6"
 elif [ -f /etc/nv_tegra_release ] && grep -q 'R35' /etc/nv_tegra_release; then
   apt_install_if_available "libcudnn8"
   apt_install_if_available "libcudnn8-dev"
   index_url="https://pypi.jetson-ai-lab.io/jp5/cu114"
   torch_ver="2.4.0"
   tv_ver="0.19.1"
+  cuda_root="/usr/local/cuda-11.4"
 else
   printf 'Could not determine supported JetPack release from /etc/nv_tegra_release. Supported: R35 (JP5), R36 (JP6).' >&2
   exit 1
 fi
+if [ ! -d "$cuda_root" ]; then
+  printf 'Expected CUDA root was not found: %s\\n' "$cuda_root" >&2
+  ls -d /usr/local/cuda* 2>/dev/null >&2 || true
+  exit 1
+fi
+export CUDA_HOME="$cuda_root"
+export PATH="$CUDA_HOME/bin:$PATH"
+export LD_LIBRARY_PATH="$CUDA_HOME/targets/aarch64-linux/lib:$CUDA_HOME/lib64:/usr/lib/aarch64-linux-gnu:\${LD_LIBRARY_PATH:-}"
+conda_prefix="$("$env_cmd" run -n "$env_name" python3 -c 'import sys; print(sys.prefix)')"
+mkdir -p "$conda_prefix/etc/conda/activate.d" "$conda_prefix/etc/conda/deactivate.d"
+cat > "$conda_prefix/etc/conda/activate.d/plsk-cuda.sh" <<EOF
+export PLSK_OLD_CUDA_HOME="\${CUDA_HOME:-}"
+export PLSK_OLD_LD_LIBRARY_PATH="\${LD_LIBRARY_PATH:-}"
+export CUDA_HOME="$cuda_root"
+export PATH="\${CUDA_HOME}/bin:\${PATH}"
+export LD_LIBRARY_PATH="\${CUDA_HOME}/targets/aarch64-linux/lib:\${CUDA_HOME}/lib64:/usr/lib/aarch64-linux-gnu:\${LD_LIBRARY_PATH:-}"
+EOF
+cat > "$conda_prefix/etc/conda/deactivate.d/plsk-cuda.sh" <<'EOF'
+if [ -n "${PLSK_OLD_CUDA_HOME+x}" ]; then
+  export CUDA_HOME="${PLSK_OLD_CUDA_HOME}"
+  unset PLSK_OLD_CUDA_HOME
+fi
+if [ -n "${PLSK_OLD_LD_LIBRARY_PATH+x}" ]; then
+  export LD_LIBRARY_PATH="${PLSK_OLD_LD_LIBRARY_PATH}"
+  unset PLSK_OLD_LD_LIBRARY_PATH
+fi
+EOF
 
 printf 'Using index: %s\\n' "$index_url"
 "$env_cmd" run -n "$env_name" python3 -m pip install --upgrade pip setuptools wheel
@@ -1726,6 +1756,10 @@ PY
       'if [ -z "$env_cmd" ] && command -v mamba >/dev/null 2>&1; then env_cmd="mamba"; fi',
       'if [ -z "$env_cmd" ] && command -v micromamba >/dev/null 2>&1; then env_cmd="micromamba"; fi',
       'if [ -z "$env_cmd" ]; then printf "No conda-compatible manager found (conda/mamba/micromamba)." >&2; exit 127; fi',
+      'cuda_root=""',
+      'if [ -f /etc/nv_tegra_release ] && grep -q "R36" /etc/nv_tegra_release; then cuda_root="/usr/local/cuda-12.6"; fi',
+      'if [ -f /etc/nv_tegra_release ] && grep -q "R35" /etc/nv_tegra_release; then cuda_root="/usr/local/cuda-11.4"; fi',
+      'if [ -n "$cuda_root" ] && [ -d "$cuda_root" ]; then export CUDA_HOME="$cuda_root"; export PATH="$CUDA_HOME/bin:$PATH"; export LD_LIBRARY_PATH="$CUDA_HOME/targets/aarch64-linux/lib:$CUDA_HOME/lib64:/usr/lib/aarch64-linux-gnu:${LD_LIBRARY_PATH:-}"; fi',
     ].join('; ');
     const runBlock = `${detectEnvCmd}; ${envArgs} "$env_cmd" run -n ${shellQuote(validation.condaEnvName)} python ${shellQuote(scriptName)}`;
     return validation.useSudo ? `sudo -n sh -lc ${shellQuote(runBlock)}` : `sh -lc ${shellQuote(runBlock)}`;

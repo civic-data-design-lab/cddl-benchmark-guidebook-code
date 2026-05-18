@@ -86,6 +86,7 @@ PYTORCH_INDEX_URL=""
 TORCH_VERSION=""
 TORCHVISION_VERSION=""
 NUMPY_SPEC="numpy==1.26.1"
+CUDA_ROOT=""
 
 case "$L4T_RELEASE" in
   36)
@@ -95,6 +96,7 @@ case "$L4T_RELEASE" in
     PYTORCH_INDEX_URL="https://pypi.jetson-ai-lab.io/jp6/cu126"
     TORCH_VERSION="2.8.0"
     TORCHVISION_VERSION="0.23.0"
+    CUDA_ROOT="/usr/local/cuda-12.6"
     ;;
   35)
     apt_install_if_available "libcudnn8"
@@ -102,12 +104,50 @@ case "$L4T_RELEASE" in
     PYTORCH_INDEX_URL="https://pypi.jetson-ai-lab.io/jp5/cu114"
     TORCH_VERSION="2.4.0"
     TORCHVISION_VERSION="0.19.1"
+    CUDA_ROOT="/usr/local/cuda-11.4"
     ;;
   *)
     echo "Unsupported Jetson Linux release R${L4T_RELEASE}. Supported: R35 and R36."
     exit 1
     ;;
 esac
+
+if [ ! -d "$CUDA_ROOT" ]; then
+  echo "Expected CUDA root was not found: ${CUDA_ROOT}"
+  echo "Available CUDA folders:"
+  ls -d /usr/local/cuda* 2>/dev/null || true
+  exit 1
+fi
+
+export CUDA_HOME="$CUDA_ROOT"
+export PATH="${CUDA_HOME}/bin:${PATH}"
+export LD_LIBRARY_PATH="${CUDA_HOME}/targets/aarch64-linux/lib:${CUDA_HOME}/lib64:/usr/lib/aarch64-linux-gnu:${LD_LIBRARY_PATH:-}"
+
+CONDA_PREFIX_PATH="$("$CONDA_BIN" run -n "$ENV_NAME" python3 -c 'import sys; print(sys.prefix)')"
+ACTIVATE_DIR="${CONDA_PREFIX_PATH}/etc/conda/activate.d"
+DEACTIVATE_DIR="${CONDA_PREFIX_PATH}/etc/conda/deactivate.d"
+mkdir -p "$ACTIVATE_DIR" "$DEACTIVATE_DIR"
+
+cat > "${ACTIVATE_DIR}/plsk-cuda.sh" <<EOF
+export PLSK_OLD_CUDA_HOME="\${CUDA_HOME:-}"
+export PLSK_OLD_LD_LIBRARY_PATH="\${LD_LIBRARY_PATH:-}"
+export CUDA_HOME="${CUDA_ROOT}"
+export PATH="\${CUDA_HOME}/bin:\${PATH}"
+export LD_LIBRARY_PATH="\${CUDA_HOME}/targets/aarch64-linux/lib:\${CUDA_HOME}/lib64:/usr/lib/aarch64-linux-gnu:\${LD_LIBRARY_PATH:-}"
+EOF
+
+cat > "${DEACTIVATE_DIR}/plsk-cuda.sh" <<'EOF'
+if [ -n "${PLSK_OLD_CUDA_HOME+x}" ]; then
+  export CUDA_HOME="${PLSK_OLD_CUDA_HOME}"
+  unset PLSK_OLD_CUDA_HOME
+fi
+if [ -n "${PLSK_OLD_LD_LIBRARY_PATH+x}" ]; then
+  export LD_LIBRARY_PATH="${PLSK_OLD_LD_LIBRARY_PATH}"
+  unset PLSK_OLD_LD_LIBRARY_PATH
+fi
+EOF
+
+echo "Configured conda activation hook for CUDA_HOME=${CUDA_ROOT}"
 
 echo
 echo "Reinstalling CUDA-enabled Torch in conda env '${ENV_NAME}'..."
