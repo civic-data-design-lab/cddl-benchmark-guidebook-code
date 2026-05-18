@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('plsk', {
   setBluetoothPower: (sshAddress, powerState) => ipcRenderer.invoke('plsk:bluetooth-power', sshAddress, powerState),
   runBluetoothDeviceAction: (sshAddress, action, deviceAddress) =>
     ipcRenderer.invoke('plsk:bluetooth-device-action', sshAddress, action, deviceAddress),
+  getCvStatus: (sshAddress, config) => ipcRenderer.invoke('plsk:cv-status', sshAddress, config),
+  runCvAction: (sshAddress, action, config) => ipcRenderer.invoke('plsk:cv-action', sshAddress, action, config),
   getCameraStatus: (sshAddress, config) => ipcRenderer.invoke('plsk:camera-status', sshAddress, config),
   runCameraAction: (sshAddress, action, config) => ipcRenderer.invoke('plsk:camera-action', sshAddress, action, config),
   fetchCapture: (sshAddress, remotePath, useSudo = false) =>

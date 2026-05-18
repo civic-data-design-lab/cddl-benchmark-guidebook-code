@@ -19,6 +19,8 @@ const fallbackApi = {
   scanBluetoothDevices: unavailable,
   setBluetoothPower: unavailable,
   runBluetoothDeviceAction: unavailable,
+  getCvStatus: unavailable,
+  runCvAction: unavailable,
   getCameraStatus: unavailable,
   runCameraAction: unavailable,
   fetchCapture: unavailable,

@@ -24,6 +24,14 @@ DETECTION_IMAGE_SAVE_INTERVAL = 600  # 10 minutes in seconds
 FPS_LOG_INTERVAL = 60  # seconds
 
 SYDNEY_TZ = pytz.timezone('Australia/Sydney')
+STATUS_CSV_PATH = os.getenv("STATUS_LOG_PATH", "/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/logs/stream_status.csv")
+DETECTION_FRAME_PATH = os.getenv("DETECTION_FRAME_PATH", "/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/detection/detection_frame.png")
+
+def env_bool(name, default=False):
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
 
 class GeoJSONSaver:
     def __init__(self, geojson_dir, save_interval=60, grid_path=None):
@@ -157,9 +165,9 @@ class BenchDetection:
 class PoseAndSittingDetection:
     def __init__(self, model_path_pose, model_path_sitting, geojson_dir_ped, geojson_dir_sitting, grid_path=None):
         self.model_pose = YOLO(model_path_pose).to('cuda')
-        self.model_sitting = YOLO(model_path_sitting).to('cuda')
+        self.model_sitting = YOLO(model_path_sitting).to('cuda') if model_path_sitting else None
         self.geojson_saver_ped = GeoJSONSaver(geojson_dir_ped, grid_path=grid_path)
-        self.geojson_saver_sitting = GeoJSONSaver(geojson_dir_sitting, grid_path=grid_path)
+        self.geojson_saver_sitting = GeoJSONSaver(geojson_dir_sitting, grid_path=grid_path) if geojson_dir_sitting else None
         self.keypoint_pairs = {
             'head': [(0, 1), (0, 2), (1, 3), (2, 4)],
             'body': [(5, 6), (6, 12), (5, 11), (12, 11)],
@@ -295,52 +303,50 @@ class PoseAndSittingDetection:
             # baseline_image_saved = True
             # self.last_annotated_save_time_ped = now_ts
 
-        # Sitting detection (use annotated_frame_sitting)
-        sitting_results = self.model_sitting.track(annotated_frame_sitting, conf=0.2, save=False, persist=True)
-        num_sitting_detections = 0
-        category_counts = defaultdict(int)
-        for result in sitting_results:
-            boxes = result.boxes
-            if boxes is not None:
-                for detection in boxes:
-                    x1, y1, x2, y2 = map(int, detection.xyxy[0][:4])
-                    bbox_pose_enhanced = [x1, y1, x2, y2]
-                    confidence = detection.conf[0]
-                    if detection.id is None:
-                        continue
-                    object_id = f'{datefor_id}_{int(detection.id.item())}'
-                    category = self.model_sitting.names[int(detection.cls)]
-                    timestamp = now.isoformat()
-                    color = (0, 255, 0) if category == 'sitting' else (255, 0, 0)
-                    cv2.rectangle(annotated_frame_sitting, (x1, y1), (x2, y2), color, 2)
-                    label = f'{category} ID: {object_id} {confidence:.2f}'
-                    cv2.putText(annotated_frame_sitting, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color, 1)
-                    closest_midpoint = self.find_closest_midpoint(midpoints, (x1 + x2) // 2, (y1 + y2) // 2)
-                    if closest_midpoint is not None:
-                        mid_x, mid_y = closest_midpoint
-                        cv2.circle(annotated_frame_sitting, (mid_x, mid_y), 3, color, -1)
-                        # IoU-based keypoint selection
-                        best_iou = 0
-                        best_keypoints = None
-                        best_id = None
-                        for pair in baseline_bbox_keypoint_pairs:
-                            iou = bbox_iou(bbox_pose_enhanced, pair["bbox"])
-                            if iou > best_iou:
-                                best_iou = iou
-                                best_keypoints = pair["keypoints"]
-                                best_id = pair["baseline_id"]
-                        # Optionally set a threshold for matching
-                        if best_iou > 0.7 and best_keypoints is not None:
-                            selected_keypoints = best_keypoints
-                        else:
-                            selected_keypoints = None
-                        self.geojson_saver_sitting.add_feature(
-                            mid_x, mid_y, category, confidence.item(), timestamp, object_id, selected_keypoints, bbox_pose_enhanced, best_id
-                        )
-                        coordinates_text = f'({mid_x}, {mid_y})'
-                        cv2.putText(annotated_frame_sitting, coordinates_text, (mid_x, mid_y + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1)
-                    num_sitting_detections += 1
-                    category_counts[category] += 1
+        if self.model_sitting is not None and self.geojson_saver_sitting is not None:
+            sitting_results = self.model_sitting.track(annotated_frame_sitting, conf=0.2, save=False, persist=True)
+            num_sitting_detections = 0
+            category_counts = defaultdict(int)
+            for result in sitting_results:
+                boxes = result.boxes
+                if boxes is not None:
+                    for detection in boxes:
+                        x1, y1, x2, y2 = map(int, detection.xyxy[0][:4])
+                        bbox_pose_enhanced = [x1, y1, x2, y2]
+                        confidence = detection.conf[0]
+                        if detection.id is None:
+                            continue
+                        object_id = f'{datefor_id}_{int(detection.id.item())}'
+                        category = self.model_sitting.names[int(detection.cls)]
+                        timestamp = now.isoformat()
+                        color = (0, 255, 0) if category == 'sitting' else (255, 0, 0)
+                        cv2.rectangle(annotated_frame_sitting, (x1, y1), (x2, y2), color, 2)
+                        label = f'{category} ID: {object_id} {confidence:.2f}'
+                        cv2.putText(annotated_frame_sitting, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color, 1)
+                        closest_midpoint = self.find_closest_midpoint(midpoints, (x1 + x2) // 2, (y1 + y2) // 2)
+                        if closest_midpoint is not None:
+                            mid_x, mid_y = closest_midpoint
+                            cv2.circle(annotated_frame_sitting, (mid_x, mid_y), 3, color, -1)
+                            best_iou = 0
+                            best_keypoints = None
+                            best_id = None
+                            for pair in baseline_bbox_keypoint_pairs:
+                                iou = bbox_iou(bbox_pose_enhanced, pair["bbox"])
+                                if iou > best_iou:
+                                    best_iou = iou
+                                    best_keypoints = pair["keypoints"]
+                                    best_id = pair["baseline_id"]
+                            if best_iou > 0.7 and best_keypoints is not None:
+                                selected_keypoints = best_keypoints
+                            else:
+                                selected_keypoints = None
+                            self.geojson_saver_sitting.add_feature(
+                                mid_x, mid_y, category, confidence.item(), timestamp, object_id, selected_keypoints, bbox_pose_enhanced, best_id
+                            )
+                            coordinates_text = f'({mid_x}, {mid_y})'
+                            cv2.putText(annotated_frame_sitting, coordinates_text, (mid_x, mid_y + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1)
+                        num_sitting_detections += 1
+                        category_counts[category] += 1
 
         # if baseline_image_saved:
         #     save_name = now.strftime("pose_enhanced_model_%Y%m%d_%H%M%S.jpg")
@@ -405,7 +411,7 @@ async def run_detection(detection_class, frame):
 fps_state = {"producer_fps": None, "consumer_fps": None, "log_time": None}
 
 async def frame_producer(queue, cap, max_retries, crop_coords):
-    status_csv_path = '/home/lcau/benchmark-aus-2/code/logs/stream_status.csv'
+    status_csv_path = STATUS_CSV_PATH
     # Ensure CSV header exists
     if not os.path.exists(status_csv_path):
         with open(status_csv_path, 'w', newline='') as csvfile:
@@ -460,7 +466,7 @@ async def frame_producer(queue, cap, max_retries, crop_coords):
                 count_frame_added = 0
 
             if last_frame_save_time is None:
-                detection_frame_path = os.path.join('/home/lcau/benchmark-aus-2/code/detection/', 'detection_frame.png')
+                detection_frame_path = DETECTION_FRAME_PATH
                 timestamp_str = time.strftime('%Y%m%d_%H%M%S')
                 label = f'background taken: {timestamp_str}'
                 frame_to_save = cropped_frame.copy()
@@ -488,7 +494,7 @@ async def frame_producer(queue, cap, max_retries, crop_coords):
                 last_frame_save_time = current_time
 
             elif (current_time - last_frame_save_time) >= DETECTION_FRAME_SAVE_INTERVAL:
-                detection_frame_path = os.path.join('/home/lcau/benchmark-aus-2/code/detection/', 'detection_frame.png')
+                detection_frame_path = DETECTION_FRAME_PATH
                 timestamp_str = time.strftime('%Y%m%d_%H%M%S')
                 label = f'detection frame taken: {timestamp_str}'
                 frame_to_save = cropped_frame.copy()
@@ -523,7 +529,7 @@ async def frame_producer(queue, cap, max_retries, crop_coords):
 async def frame_consumer(queue, bench_detection, ped_and_sitting_detection, image_output_dir):
     count_frame_consumed = 0
     last_fps_log_time = time.time()
-    status_csv_path = '/home/lcau/benchmark-aus-2/code/logs/stream_status.csv'
+    status_csv_path = STATUS_CSV_PATH
     # Ensure CSV header exists
     if not os.path.exists(status_csv_path):
         with open(status_csv_path, 'w', newline='') as csvfile:
@@ -539,19 +545,26 @@ async def frame_consumer(queue, bench_detection, ped_and_sitting_detection, imag
 
         start_time = time.time()
 
-        tasks = [
-            run_detection(bench_detection, frame),
-            run_detection(ped_and_sitting_detection, frame)
-        ]
+        tasks = []
+        if bench_detection is not None:
+            tasks.append(run_detection(bench_detection, frame))
+        if ped_and_sitting_detection is not None:
+            tasks.append(run_detection(ped_and_sitting_detection, frame))
+        if not tasks:
+            await asyncio.sleep(0.1)
+            continue
         results = await asyncio.gather(*tasks)
 
         # Calculate duration of detection tasks
         duration = time.time() - start_time
 
         # Save GeoJSON data
-        bench_detection.geojson_saver.save()
-        ped_and_sitting_detection.geojson_saver_ped.save()
-        ped_and_sitting_detection.geojson_saver_sitting.save()
+        if bench_detection is not None:
+            bench_detection.geojson_saver.save()
+        if ped_and_sitting_detection is not None:
+            ped_and_sitting_detection.geojson_saver_ped.save()
+            if ped_and_sitting_detection.geojson_saver_sitting is not None:
+                ped_and_sitting_detection.geojson_saver_sitting.save()
 
         logging.info(f"Detection and processing took {duration:.2f} seconds.")
 
@@ -614,8 +627,28 @@ def bbox_iou(boxA, boxB):
     return iou
 
 if __name__ == "__main__":
-    bench_detection = BenchDetection('/home/lcau/benchmark-aus-2/code/model/bench_version2025/bench_10x/weights/best.pt', '/home/lcau/benchmark-aus-2/data/bench', grid_path=None)
-    pose_and_sitting_detection = PoseAndSittingDetection('/home/lcau/benchmark-aus-2/code/model/yolov8l-pose.pt', '/home/lcau/benchmark-aus-2/code/model/sitting_version2025/sitting_3x/weights/best.pt', '/home/lcau/benchmark-aus-2/data/ped', '/home/lcau/benchmark-aus-2/data/sitting', grid_path=None)
-    stream_url = "udp://@0.0.0.0:8554"
-    image_output_dir = '/home/lcau/benchmark-aus-2/data'
+    stream_url = os.getenv("STREAM_URL", "udp://@0.0.0.0:8554")
+    image_output_dir = os.getenv("OUTPUT_BASE_DIR", '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/data')
+    pose_model_path = os.getenv("MODEL_POSE_PATH", '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/yolov8l-pose.pt')
+    bench_model_path = os.getenv("MODEL_BENCH_PATH", '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/bench_version2025/bench_10x/weights/best.pt')
+    sitting_model_path = os.getenv("MODEL_SITTING_PATH", '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/sitting_version2025/sitting_3x/weights/best.pt')
+    enable_bench_model = env_bool("ENABLE_BENCH_MODEL", False)
+    enable_sitting_model = env_bool("ENABLE_SITTING_MODEL", True)
+
+    bench_detection = None
+    if enable_bench_model:
+        bench_detection = BenchDetection(
+            bench_model_path,
+            os.path.join(image_output_dir, 'bench'),
+            grid_path=None,
+        )
+
+    pose_and_sitting_detection = PoseAndSittingDetection(
+        pose_model_path,
+        sitting_model_path if enable_sitting_model else None,
+        os.path.join(image_output_dir, 'ped'),
+        os.path.join(image_output_dir, 'sitting') if enable_sitting_model else None,
+        grid_path=None,
+    )
+
     asyncio.run(process_stream(bench_detection, pose_and_sitting_detection, stream_url, image_output_dir))

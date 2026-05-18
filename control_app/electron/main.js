@@ -30,6 +30,21 @@ const DEFAULT_CAMERA_CONFIG = {
   pauseSeconds: 3540,
   useSudo: true,
 };
+const DEFAULT_CV_CONFIG = {
+  basePath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/detection',
+  script: 'stream_detection_0630_pose_sitting_integrated_bench_5s.py',
+  condaEnvName: 'plsk',
+  environmentYamlPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/environment.yml',
+  session: 'cv_detection',
+  streamUrl: 'udp://@0.0.0.0:8554',
+  outputPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/data',
+  logPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/logs',
+  poseModelPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/yolov8l-pose.pt',
+  enableBenchModel: false,
+  benchModelPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/bench_version2025/bench_10x/weights/best.pt',
+  sittingModelPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/sitting_version2025/sitting_3x/weights/best.pt',
+  useSudo: false,
+};
 
 function createWindow() {
   const window = new BrowserWindow({
@@ -559,6 +574,77 @@ function validateCameraConfig(config = {}) {
     durationSeconds,
     samples,
     pauseSeconds,
+    useSudo: config.useSudo !== false,
+  };
+}
+
+function validateCvConfig(config = {}) {
+  const basePath = validateRemotePath(config.basePath || DEFAULT_CV_CONFIG.basePath);
+  if (!basePath.valid) {
+    return { valid: false, message: basePath.message };
+  }
+
+  const scriptValidation = validateScriptName(config.script, DEFAULT_CV_CONFIG.script);
+  if (!scriptValidation.valid) {
+    return scriptValidation;
+  }
+  const condaEnvName = String(config.condaEnvName || DEFAULT_CV_CONFIG.condaEnvName).trim();
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(condaEnvName)) {
+    return { valid: false, message: 'Conda env name can only use letters, numbers, hyphens, and underscores.' };
+  }
+  const environmentYamlPath = validateRemotePath(config.environmentYamlPath || DEFAULT_CV_CONFIG.environmentYamlPath);
+  if (!environmentYamlPath.valid) {
+    return { valid: false, message: environmentYamlPath.message };
+  }
+
+  const sessionValidation = validateSessionName(config.session, DEFAULT_CV_CONFIG.session);
+  if (!sessionValidation.valid) {
+    return sessionValidation;
+  }
+
+  const streamUrl = String(config.streamUrl || DEFAULT_CV_CONFIG.streamUrl).trim();
+  if (!/^udp:\/\/[a-zA-Z0-9@.:/?_=&-]+$/.test(streamUrl)) {
+    return { valid: false, message: 'Use a valid UDP stream URL.' };
+  }
+
+  const outputPath = validateRemotePath(config.outputPath || DEFAULT_CV_CONFIG.outputPath);
+  if (!outputPath.valid) {
+    return { valid: false, message: outputPath.message };
+  }
+  const logPath = validateRemotePath(config.logPath || DEFAULT_CV_CONFIG.logPath);
+  if (!logPath.valid) {
+    return { valid: false, message: logPath.message };
+  }
+
+  const poseModelPath = validateRemotePath(config.poseModelPath || DEFAULT_CV_CONFIG.poseModelPath);
+  if (!poseModelPath.valid) {
+    return { valid: false, message: poseModelPath.message };
+  }
+
+  const benchModelPath = validateRemotePath(config.benchModelPath || DEFAULT_CV_CONFIG.benchModelPath);
+  if (!benchModelPath.valid) {
+    return { valid: false, message: benchModelPath.message };
+  }
+
+  const sittingModelPath = validateRemotePath(config.sittingModelPath || DEFAULT_CV_CONFIG.sittingModelPath);
+  if (!sittingModelPath.valid) {
+    return { valid: false, message: sittingModelPath.message };
+  }
+
+  return {
+    valid: true,
+    basePath: basePath.value,
+    script: scriptValidation.value,
+    condaEnvName,
+    environmentYamlPath: environmentYamlPath.value,
+    session: sessionValidation.value,
+    streamUrl,
+    outputPath: outputPath.value,
+    logPath: logPath.value,
+    poseModelPath: poseModelPath.value,
+    enableBenchModel: Boolean(config.enableBenchModel),
+    benchModelPath: benchModelPath.value,
+    sittingModelPath: sittingModelPath.value,
     useSudo: config.useSudo !== false,
   };
 }
@@ -1350,6 +1436,221 @@ fi
   };
 });
 
+ipcMain.handle('plsk:cv-status', async (_event, sshAddress, config) => {
+  const validation = validateCvConfig(config);
+  if (!validation.valid) {
+    return { ok: false, message: validation.message, detail: '' };
+  }
+
+  const script = `
+base=${shellQuote(validation.basePath)}
+session=${shellQuote(validation.session)}
+script_name=${shellQuote(validation.script)}
+conda_env=${shellQuote(validation.condaEnvName)}
+env_yml=${shellQuote(validation.environmentYamlPath)}
+pose_model=${shellQuote(validation.poseModelPath)}
+bench_enabled=${shellQuote(validation.enableBenchModel ? '1' : '0')}
+bench_model=${shellQuote(validation.benchModelPath)}
+sitting_model=${shellQuote(validation.sittingModelPath)}
+print_field() { printf '%s=%s\\n' "$1" "$2"; }
+if [ -d "$base" ]; then print_field basePath ok; else print_field basePath missing; fi
+if command -v conda >/dev/null 2>&1; then print_field conda ok; else print_field conda missing; fi
+if [ -f "$env_yml" ]; then print_field environmentYaml ok; else print_field environmentYaml missing; fi
+if command -v conda >/dev/null 2>&1 && conda env list | awk '{print $1}' | grep -qx "$conda_env"; then print_field condaEnv ok; else print_field condaEnv missing; fi
+if command -v python3 >/dev/null 2>&1; then print_field python ok; else print_field python missing; fi
+if command -v tmux >/dev/null 2>&1; then print_field tmux ok; else print_field tmux missing; fi
+python3 - <<'PY' >/dev/null 2>&1
+import cv2
+PY
+if [ "$?" -eq 0 ]; then print_field opencv ok; else print_field opencv missing; fi
+python3 - <<'PY' >/dev/null 2>&1
+from ultralytics import YOLO
+PY
+if [ "$?" -eq 0 ]; then print_field ultralytics ok; else print_field ultralytics missing; fi
+if [ -f "$base/$script_name" ]; then print_field script ok; else print_field script missing; fi
+if [ -f "$pose_model" ]; then print_field poseModel ok; else print_field poseModel missing; fi
+if [ "$bench_enabled" = "1" ]; then
+  if [ -f "$bench_model" ]; then print_field benchModel ok; else print_field benchModel missing; fi
+else
+  print_field benchModel optional-off
+fi
+if [ -f "$sitting_model" ]; then print_field sittingModel ok; else print_field sittingModel missing; fi
+if tmux has-session -t "$session" 2>/dev/null; then print_field sessionState running; else print_field sessionState stopped; fi
+`.trim();
+
+  const result = await runSshRemoteCommand(sshAddress, `sh -lc ${shellQuote(script)}`, {
+    connectTimeout: 12,
+  });
+
+  if (!result.ok) {
+    return result;
+  }
+
+  return {
+    ok: true,
+    message: 'CV status loaded.',
+    status: parseKeyValueOutput(result.stdout),
+    detail: result.stdout,
+  };
+});
+
+ipcMain.handle('plsk:cv-action', async (_event, sshAddress, action, config) => {
+  const validation = validateCvConfig(config);
+  if (!validation.valid) {
+    return { ok: false, message: validation.message, detail: '' };
+  }
+
+  const actions = new Set(['setup-env', 'start', 'stop', 'read-logs', 'patch-script']);
+  if (!actions.has(action)) {
+    return { ok: false, message: 'Invalid CV action.', detail: '' };
+  }
+
+  if (action === 'setup-env') {
+    const setupScript = `
+env_name=${shellQuote(validation.condaEnvName)}
+env_yml=${shellQuote(validation.environmentYamlPath)}
+if ! command -v conda >/dev/null 2>&1; then printf 'conda is not available on this Jetson.' >&2; exit 127; fi
+if [ ! -f "$env_yml" ]; then printf 'environment.yml not found: %s' "$env_yml" >&2; exit 1; fi
+if conda env list | awk '{print $1}' | grep -qx "$env_name"; then
+  conda env update -n "$env_name" -f "$env_yml" --prune
+  printf 'Conda env %s updated from %s.' "$env_name" "$env_yml"
+else
+  conda env create -n "$env_name" -f "$env_yml"
+  printf 'Conda env %s created from %s.' "$env_name" "$env_yml"
+fi
+`.trim();
+
+    const result = await runSshRemoteCommand(
+      sshAddress,
+      `bash -lc ${shellQuote(setupScript)}`,
+      { connectTimeout: 60 },
+    );
+
+    if (!result.ok) {
+      return result;
+    }
+
+    return {
+      ok: true,
+      message: `Conda env ${validation.condaEnvName} is ready.`,
+      detail: [result.stdout, result.stderr].filter(Boolean).join('\n'),
+    };
+  }
+
+  if (action === 'patch-script') {
+    const localScriptPath = path.join(DETECTION_LOCAL_CODE_DIR, validation.script);
+    if (!existsSync(localScriptPath)) {
+      return {
+        ok: false,
+        message: 'Local detection script not found in this app install.',
+        detail: localScriptPath,
+      };
+    }
+
+    const sshValidation = validateSshAddress(sshAddress);
+    if (!sshValidation.valid) {
+      return { ok: false, message: sshValidation.message, detail: '' };
+    }
+
+    const remoteScriptPath = `${validation.basePath}/${validation.script}`;
+    const copyResult = await runCommand('scp', [
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=12',
+      localScriptPath,
+      `${sshValidation.value}:${remoteScriptPath}`,
+    ]);
+
+    if (!copyResult.ok) {
+      return {
+        ok: false,
+        message: 'Could not patch CV script to the Jetson.',
+        detail: copyResult.stderr || copyResult.stdout || '',
+      };
+    }
+
+    return {
+      ok: true,
+      message: 'CV script patched to the Jetson.',
+      detail: remoteScriptPath,
+    };
+  }
+
+  const pythonCommandWithEnv = (scriptName, env = {}) => {
+    const envArgs = Object.entries(env)
+      .map(([key, value]) => `${key}=${shellQuote(String(value))}`)
+      .join(' ');
+    const condaRun = `conda run -n ${shellQuote(validation.condaEnvName)} python ${shellQuote(scriptName)}`;
+    return validation.useSudo
+      ? `sudo -n env ${envArgs} ${condaRun}`
+      : `${envArgs} ${condaRun}`;
+  };
+
+  const runCommandText = [
+    `cd ${shellQuote(validation.basePath)}`,
+    pythonCommandWithEnv(validation.script, {
+      STREAM_URL: validation.streamUrl,
+      OUTPUT_BASE_DIR: validation.outputPath,
+      STATUS_LOG_PATH: `${validation.logPath.replace(/\/$/, '')}/stream_status.csv`,
+      DETECTION_FRAME_PATH: `${validation.basePath.replace(/\/$/, '')}/detection_frame.png`,
+      MODEL_POSE_PATH: validation.poseModelPath,
+      ENABLE_BENCH_MODEL: validation.enableBenchModel ? '1' : '0',
+      MODEL_BENCH_PATH: validation.benchModelPath,
+      ENABLE_SITTING_MODEL: '1',
+      MODEL_SITTING_PATH: validation.sittingModelPath,
+    }),
+  ].join(' && ');
+
+  const scripts = {
+    start: `
+session=${shellQuote(validation.session)}
+run_command=${shellQuote(runCommandText)}
+if ! command -v tmux >/dev/null 2>&1; then printf 'tmux is not available.' >&2; exit 127; fi
+if tmux has-session -t "$session" 2>/dev/null; then printf 'CV session already running.'; exit 0; fi
+tmux new-session -d -s "$session" "$run_command"
+printf 'CV session started.'
+`,
+    stop: `
+session=${shellQuote(validation.session)}
+if tmux has-session -t "$session" 2>/dev/null; then tmux kill-session -t "$session"; printf 'CV session stopped.'; else printf 'CV session was not running.'; fi
+`,
+    'read-logs': `
+session=${shellQuote(validation.session)}
+if command -v tmux >/dev/null 2>&1 && tmux has-session -t "$session" 2>/dev/null; then
+  printf '[CV]\\n'
+  tmux capture-pane -p -t "$session" -S -400
+else
+  printf '[CV]\\nNot running.\\n'
+fi
+`,
+  };
+
+  const result = await runSshRemoteCommand(
+    sshAddress,
+    `sh -lc ${shellQuote(scripts[action].trim())}`,
+    { connectTimeout: 15 },
+  );
+
+  if (!result.ok) {
+    return result;
+  }
+
+  const messages = {
+    'setup-env': 'Conda environment setup requested.',
+    start: 'CV detection start requested.',
+    stop: 'CV detection stop requested.',
+    'read-logs': 'CV logs loaded.',
+    'patch-script': 'CV script patch requested.',
+  };
+
+  return {
+    ok: true,
+    message: messages[action],
+    detail: [result.stdout, result.stderr].filter(Boolean).join('\n'),
+  };
+});
+
 ipcMain.handle('plsk:camera-status', async (_event, sshAddress, config) => {
   const validation = validateCameraConfig(config);
   if (!validation.valid) {
@@ -1633,6 +1934,7 @@ ipcMain.handle('plsk:fetch-capture', async (_event, sshAddress, remotePath, useS
   fetchRemoteImageBase64(sshAddress, remotePath, useSudo));
 
 const GOPRO_LOCAL_CODE_DIR = path.join(__dirname, '../code/gopro');
+const DETECTION_LOCAL_CODE_DIR = path.join(__dirname, '../code/detection');
 
 ipcMain.handle('plsk:patch-gopro-to-jetson', async (_event, sshAddress, config) => {
   const validation = validateCameraConfig(config);

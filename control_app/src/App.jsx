@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import ActionButtons from './components/ActionButtons.jsx';
 import CameraManager from './components/CameraManager.jsx';
+import ComputerVisionManager from './components/ComputerVisionManager.jsx';
 import DeviceForm from './components/DeviceForm.jsx';
 import DtprSetupGuide from './components/DtprSetupGuide.jsx';
 import Header from './components/Header.jsx';
@@ -37,6 +38,22 @@ const DEFAULT_CAMERA_CONFIG = {
   samples: 24,
   pauseSeconds: 3540,
   useSudo: true,
+};
+
+const DEFAULT_CV_CONFIG = {
+  basePath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/detection',
+  script: 'stream_detection_0630_pose_sitting_integrated_bench_5s.py',
+  condaEnvName: 'plsk',
+  environmentYamlPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/environment.yml',
+  session: 'cv_detection',
+  streamUrl: 'udp://@0.0.0.0:8554',
+  outputPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/data',
+  logPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/logs',
+  poseModelPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/yolov8l-pose.pt',
+  enableBenchModel: false,
+  benchModelPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/bench_version2025/bench_10x/weights/best.pt',
+  sittingModelPath: '/home/lcau/Desktop/PLSK/cddl-benchmark-guidebook-code/control_app/code/model/sitting_version2025/sitting_3x/weights/best.pt',
+  useSudo: false,
 };
 
 function getCaptureOutputDir(cameraConfig) {
@@ -121,6 +138,9 @@ export default function App() {
   const [cameraConfig, setCameraConfig] = useState(DEFAULT_CAMERA_CONFIG);
   const [cameraStatus, setCameraStatus] = useState(null);
   const [cameraLog, setCameraLog] = useState('');
+  const [cvConfig, setCvConfig] = useState(DEFAULT_CV_CONFIG);
+  const [cvStatus, setCvStatus] = useState(null);
+  const [cvLog, setCvLog] = useState('');
   const [wifiNetworks, setWifiNetworks] = useState([]);
   const [bluetoothDevices, setBluetoothDevices] = useState([]);
   const [connectionLabel, setConnectionLabel] = useState('Not tested');
@@ -752,6 +772,57 @@ export default function App() {
     }
   }
 
+  async function checkCvStatus() {
+    setBusyAction('cv-status');
+    setStatus(null);
+    try {
+      const result = await plskApi.getCvStatus(device.sshAddress, cvConfig);
+      if (result.ok) {
+        setCvStatus(result.status || null);
+      }
+      setStatus({
+        type: result.ok ? 'success' : 'error',
+        message: result.message,
+        detail: result.detail,
+      });
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message });
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function runCvAction(action) {
+    setBusyAction(`cv-${action}`);
+    setStatus(null);
+
+    if (action === 'read-logs') {
+      setCvLog('[CV]\nLoading logs...\n');
+    }
+
+    try {
+      const result = await plskApi.runCvAction(device.sshAddress, action, cvConfig);
+      if (action === 'read-logs' && result.ok) {
+        setCvLog(result.detail || '');
+      }
+      if (action === 'start' && result.ok) {
+        setCvStatus((current) => ({ ...(current || {}), sessionState: 'running' }));
+      }
+      if (action === 'stop' && result.ok) {
+        setCvStatus((current) => ({ ...(current || {}), sessionState: 'stopped' }));
+      }
+      setStatus({
+        type: result.ok ? 'success' : 'error',
+        message: result.message,
+        detail: result.detail,
+      });
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message });
+    } finally {
+      setBusyAction('');
+    }
+  }
+
   function renderActivePage() {
     if (activePage === 'access') {
       return (
@@ -814,6 +885,20 @@ export default function App() {
             setCapturePreviewError('');
           }}
           onPatchGoproToJetson={patchGoproToJetson}
+        />
+      );
+    }
+
+    if (activePage === 'cv') {
+      return (
+        <ComputerVisionManager
+          cvConfig={cvConfig}
+          cvStatus={cvStatus}
+          cvLog={cvLog}
+          busyAction={busyAction}
+          onCvConfigChange={setCvConfig}
+          onCheckCv={checkCvStatus}
+          onCvAction={runCvAction}
         />
       );
     }
