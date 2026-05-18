@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import ActionButtons from './components/ActionButtons.jsx';
 import CameraManager from './components/CameraManager.jsx';
 import DeviceForm from './components/DeviceForm.jsx';
+import DtprSetupGuide from './components/DtprSetupGuide.jsx';
 import Header from './components/Header.jsx';
 import JetsonControlPanel from './components/JetsonControlPanel.jsx';
 import SetupChecklist from './components/SetupChecklist.jsx';
@@ -815,6 +816,10 @@ export default function App() {
           onPatchGoproToJetson={patchGoproToJetson}
         />
       );
+    }
+
+    if (activePage === 'dtpr') {
+      return <DtprSetupGuide />;
     }
 
     return (

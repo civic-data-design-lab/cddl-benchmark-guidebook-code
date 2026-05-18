@@ -39,40 +39,6 @@ const STATUS_COLORS = {
   "Not checked": { bg: "#f1f5f9", color: "#94a3b8", border: "#e2e8f0" },
 };
 
-function parseCollectorProgress(cameraLog, configuredSamples) {
-  const log = cameraLog || "";
-  const startedMatches = [...log.matchAll(/Starting sample\s+(\d+)\s+of\s+(\d+)/gi)];
-  const collectedMatches = [...log.matchAll(/Collected sample\s+(\d+)\s+of\s+(\d+)/gi)];
-  const savedMatches = [...log.matchAll(/Video saved as\s+([^\n\r]+)/gi)];
-  const completedMatch = log.match(/Completed capturing\s+(\d+)\s+samples/gi);
-  const latestStarted = startedMatches[startedMatches.length - 1];
-  const latestCollected = collectedMatches[collectedMatches.length - 1];
-  const total = latestStarted
-    ? Number(latestStarted[2])
-    : latestCollected
-        ? Number(latestCollected[2])
-        : Number(configuredSamples || 0);
-
-  let collected = latestCollected ? Number(latestCollected[1]) : savedMatches.length;
-  if (completedMatch?.length && total) {
-    collected = total;
-  } else if (latestStarted) {
-    collected = Math.min(collected, total || collected);
-  }
-
-  const latestSaved = savedMatches[savedMatches.length - 1]?.[1]?.trim() || "";
-  const currentSample = latestStarted ? Number(latestStarted[1]) : null;
-  const percent = total > 0 ? Math.min(100, Math.round((collected / total) * 100)) : 0;
-
-  return {
-    collected,
-    currentSample,
-    latestSaved,
-    percent,
-    total,
-  };
-}
-
 function StatusBadge({ value }) {
   const style = STATUS_COLORS[value] || STATUS_COLORS["Not checked"];
   const display = value || "Not checked";
@@ -113,10 +79,6 @@ export default function CameraManager({
   const busy = Boolean(busyAction);
   const needsSudo =
     cameraStatus?.passwordlessSudo && cameraStatus.passwordlessSudo !== "ok";
-  const collectorProgress = parseCollectorProgress(
-    cameraLog,
-    cameraConfig.samples
-  );
 
   function updateConfig(key, value) {
     onCameraConfigChange({ ...cameraConfig, [key]: value });
@@ -416,32 +378,10 @@ export default function CameraManager({
             </label>
           </div>
 
-          <div className="collector-progress">
-            <div className="collector-progress-header">
-              <span>Collected sample data</span>
-              <strong>
-                {collectorProgress.collected} / {collectorProgress.total || cameraConfig.samples}
-              </strong>
-            </div>
-            <div
-              className="collector-progress-track"
-              aria-label="Collector progress"
-              aria-valuemax={collectorProgress.total || cameraConfig.samples}
-              aria-valuemin="0"
-              aria-valuenow={collectorProgress.collected}
-              role="progressbar"
-            >
-              <span style={{ width: `${collectorProgress.percent}%` }} />
-            </div>
-            <p className="collector-progress-meta">
-              {collectorProgress.currentSample
-                ? `Recording sample ${collectorProgress.currentSample} of ${collectorProgress.total}.`
-                : "Start the collector, then Read Logs to refresh progress."}
-              {collectorProgress.latestSaved
-                ? ` Latest saved: ${collectorProgress.latestSaved.split("/").pop()}`
-                : ""}
-            </p>
-          </div>
+          <p className="collector-progress-meta">
+            Use the Read Logs button at the bottom of this page to monitor
+            interval recording progress for the collector session.
+          </p>
 
           <div className="button-row">
             <button
@@ -538,3 +478,5 @@ export default function CameraManager({
     </section>
   );
 }
+
+

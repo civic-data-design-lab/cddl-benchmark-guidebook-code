@@ -3,6 +3,7 @@ const pages = [
   { id: 'access', label: 'Remote Access' },
   { id: 'control', label: 'Jetson Manager' },
   { id: 'camera', label: 'Camera Manager' },
+  { id: 'dtpr', label: 'DTPR Website' },
 ];
 
 export default function Header({ activePage, onPageChange }) {

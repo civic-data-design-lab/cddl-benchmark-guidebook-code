@@ -1536,13 +1536,13 @@ stream_session=${shellQuote(validation.streamSession)}
 collector_session=${shellQuote(validation.collectorSession)}
 if command -v tmux >/dev/null 2>&1 && tmux has-session -t "$stream_session" 2>/dev/null; then
   printf '[Stream]\\n'
-  tmux capture-pane -p -t "$stream_session" -S -80
+  tmux capture-pane -p -t "$stream_session" -S -400
 else
   printf '[Stream]\\nNot running.\\n'
 fi
 printf '\\n[Collector]\\n'
 if command -v tmux >/dev/null 2>&1 && tmux has-session -t "$collector_session" 2>/dev/null; then
-  tmux capture-pane -p -t "$collector_session" -S -80
+  tmux capture-pane -p -t "$collector_session" -S -400
 else
   printf 'Not running.\\n'
 fi

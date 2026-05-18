@@ -542,6 +542,103 @@ select:focus {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.dtpr-setup-guide {
+  display: grid;
+  gap: 16px;
+}
+
+.guide-intro {
+  background: #f8fafc;
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.guide-intro p {
+  color: #415466;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.guide-intro pre,
+.guide-step pre {
+  background: #111827;
+  border-radius: 8px;
+  color: #e5edf5;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  margin: 0;
+  overflow: auto;
+  padding: 12px;
+}
+
+.guide-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+}
+
+.guide-steps {
+  display: grid;
+  gap: 14px;
+}
+
+.guide-step {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 34px minmax(0, 1fr);
+}
+
+.guide-step-number {
+  align-items: center;
+  background: #dbeafe;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  color: #1d4ed8;
+  display: inline-flex;
+  font-size: 0.88rem;
+  font-weight: 800;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.guide-step h3 {
+  font-size: 0.96rem;
+  margin: 0 0 5px;
+}
+
+.guide-step p {
+  color: #415466;
+  line-height: 1.45;
+  margin: 0 0 8px;
+}
+
+.guide-step p:last-child {
+  margin-bottom: 0;
+}
+
+.guide-page-list {
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.guide-page-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(100px, 0.45fr) minmax(0, 1fr);
+  padding: 12px;
+}
+
+.guide-page-row + .guide-page-row {
+  border-top: 1px solid #e3e9ef;
+}
+
+.guide-page-row span {
+  color: #415466;
+}
+
 .status-group-label {
   color: #415466;
   font-size: 0.82rem;
@@ -919,7 +1016,8 @@ select:focus {
     width: 100%;
   }
 
-  .manager-grid {
+  .manager-grid,
+  .guide-grid {
     grid-template-columns: 1fr;
   }
 
