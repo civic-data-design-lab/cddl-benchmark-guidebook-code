@@ -1455,6 +1455,11 @@ sitting_model=${shellQuote(validation.sittingModelPath)}
 print_field() { printf '%s=%s\\n' "$1" "$2"; }
 env_cmd=""
 if command -v conda >/dev/null 2>&1; then env_cmd="conda"; fi
+if [ -z "$env_cmd" ] && [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then . "$HOME/miniconda3/etc/profile.d/conda.sh"; fi
+if [ -z "$env_cmd" ] && [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then . "$HOME/anaconda3/etc/profile.d/conda.sh"; fi
+if [ -z "$env_cmd" ] && command -v conda >/dev/null 2>&1; then env_cmd="conda"; fi
+if [ -z "$env_cmd" ] && [ -x "$HOME/miniconda3/bin/conda" ]; then env_cmd="$HOME/miniconda3/bin/conda"; fi
+if [ -z "$env_cmd" ] && [ -x "$HOME/anaconda3/bin/conda" ]; then env_cmd="$HOME/anaconda3/bin/conda"; fi
 if [ -z "$env_cmd" ] && command -v mamba >/dev/null 2>&1; then env_cmd="mamba"; fi
 if [ -z "$env_cmd" ] && command -v micromamba >/dev/null 2>&1; then env_cmd="micromamba"; fi
 if [ -d "$base" ]; then print_field basePath ok; else print_field basePath missing; fi
@@ -1515,6 +1520,11 @@ env_name=${shellQuote(validation.condaEnvName)}
 env_yml=${shellQuote(validation.environmentYamlPath)}
 env_cmd=""
 if command -v conda >/dev/null 2>&1; then env_cmd="conda"; fi
+if [ -z "$env_cmd" ] && [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then . "$HOME/miniconda3/etc/profile.d/conda.sh"; fi
+if [ -z "$env_cmd" ] && [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then . "$HOME/anaconda3/etc/profile.d/conda.sh"; fi
+if [ -z "$env_cmd" ] && command -v conda >/dev/null 2>&1; then env_cmd="conda"; fi
+if [ -z "$env_cmd" ] && [ -x "$HOME/miniconda3/bin/conda" ]; then env_cmd="$HOME/miniconda3/bin/conda"; fi
+if [ -z "$env_cmd" ] && [ -x "$HOME/anaconda3/bin/conda" ]; then env_cmd="$HOME/anaconda3/bin/conda"; fi
 if [ -z "$env_cmd" ] && command -v mamba >/dev/null 2>&1; then env_cmd="mamba"; fi
 if [ -z "$env_cmd" ] && command -v micromamba >/dev/null 2>&1; then env_cmd="micromamba"; fi
 if [ -z "$env_cmd" ]; then printf 'No conda-compatible manager found (conda/mamba/micromamba).' >&2; exit 127; fi
@@ -1592,6 +1602,11 @@ fi
     const detectEnvCmd = [
       'env_cmd=""',
       'if command -v conda >/dev/null 2>&1; then env_cmd="conda"; fi',
+      'if [ -z "$env_cmd" ] && [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then . "$HOME/miniconda3/etc/profile.d/conda.sh"; fi',
+      'if [ -z "$env_cmd" ] && [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then . "$HOME/anaconda3/etc/profile.d/conda.sh"; fi',
+      'if [ -z "$env_cmd" ] && command -v conda >/dev/null 2>&1; then env_cmd="conda"; fi',
+      'if [ -z "$env_cmd" ] && [ -x "$HOME/miniconda3/bin/conda" ]; then env_cmd="$HOME/miniconda3/bin/conda"; fi',
+      'if [ -z "$env_cmd" ] && [ -x "$HOME/anaconda3/bin/conda" ]; then env_cmd="$HOME/anaconda3/bin/conda"; fi',
       'if [ -z "$env_cmd" ] && command -v mamba >/dev/null 2>&1; then env_cmd="mamba"; fi',
       'if [ -z "$env_cmd" ] && command -v micromamba >/dev/null 2>&1; then env_cmd="micromamba"; fi',
       'if [ -z "$env_cmd" ]; then printf "No conda-compatible manager found (conda/mamba/micromamba)." >&2; exit 127; fi',
