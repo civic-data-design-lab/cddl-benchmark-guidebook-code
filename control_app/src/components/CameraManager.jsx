@@ -28,6 +28,7 @@ const STATUS_COLORS = {
   connected: { bg: "#dcfce7", color: "#15803d", border: "#bbf7d0" },
   failed: { bg: "#fee2e2", color: "#b91c1c", border: "#fecaca" },
   retrying: { bg: "#fef9c3", color: "#a16207", border: "#fef08a" },
+  waiting: { bg: "#fef9c3", color: "#a16207", border: "#fef08a" },
   streaming: { bg: "#dcfce7", color: "#15803d", border: "#bbf7d0" },
   listening: { bg: "#dbeafe", color: "#1d4ed8", border: "#bfdbfe" },
   unknown: { bg: "#f1f5f9", color: "#475569", border: "#e2e8f0" },

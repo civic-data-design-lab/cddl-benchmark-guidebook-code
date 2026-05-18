@@ -112,14 +112,28 @@ def main():
     pause_duration = int(os.getenv("PAUSE_DURATION", 3540))  # seconds
 
     for i in range(samples):
-        logging.info(f"Starting sample {i + 1} of {samples}")
-        capture_stream_with_ffmpeg(f"{stream_url}?fifo_size=100000000&overrun_nonfatal=1", duration=duration, output_directory=VIDEO_PATH)
-        logging.info(f"Collected sample {i + 1} of {samples}")
-        if i < samples - 1:
-            for remaining in range(pause_duration, 0, -1):
-                print(f"\rPausing... {remaining} seconds remaining", end="")
-                time.sleep(1)
-            print()
+        sample_num = i + 1
+        try:
+            logging.info(f"Starting sample {sample_num} of {samples}")
+            capture_stream_with_ffmpeg(
+                f"{stream_url}?fifo_size=100000000&overrun_nonfatal=1",
+                duration=duration,
+                output_directory=VIDEO_PATH,
+            )
+            logging.info(f"Collected sample {sample_num} of {samples}")
+        except Exception as exc:
+            # Keep the collector alive across one-off capture/upload failures.
+            logging.exception(f"Sample {sample_num} failed: {exc}")
+
+        if sample_num < samples and pause_duration > 0:
+            remaining = pause_duration
+            while remaining > 0:
+                sleep_chunk = min(30, remaining)
+                logging.info(
+                    f"Pausing... {remaining} seconds remaining before sample {sample_num + 1}."
+                )
+                time.sleep(sleep_chunk)
+                remaining -= sleep_chunk
     logging.info(f"Completed capturing {samples} samples.")
 
 if __name__ == "__main__":

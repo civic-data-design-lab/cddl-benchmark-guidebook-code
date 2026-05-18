@@ -1387,7 +1387,18 @@ else
   print_field streamSession stopped
   stream_log=""
 fi
-if tmux has-session -t "$collector_session" 2>/dev/null; then print_field collectorSession running; else print_field collectorSession stopped; fi
+if tmux has-session -t "$collector_session" 2>/dev/null; then
+  collector_log=$(tmux capture-pane -p -t "$collector_session" -S -200 2>/dev/null)
+  if printf '%s' "$collector_log" | grep -qi 'Pausing...'; then
+    print_field collectorSession waiting
+  elif printf '%s' "$collector_log" | grep -Eqi 'Starting sample|Collected sample'; then
+    print_field collectorSession running
+  else
+    print_field collectorSession running
+  fi
+else
+  print_field collectorSession stopped
+fi
 if command -v ss >/dev/null 2>&1 && ss -lun | grep -q ':8554'; then print_field udp8554 listening; else print_field udp8554 unknown; fi
 if printf '%s' "$stream_log" | grep -qi 'Successfully connected to GoPro'; then
   print_field goproConnection connected
